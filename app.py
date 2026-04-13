@@ -29,16 +29,29 @@ st.set_page_config(
 )
 
 # ── Inject CSS ────────────────────────────────────────────────────────────────
+# FIX 1: Added rules to remove Streamlit's default top padding/header that
+#         was clipping the banner. Google Fonts link moved to <link> preconnect
+#         style so the font still loads but doesn't block rendering.
 st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
 
+<style>
 html, body, [class*="css"] {
     background: #0A0C10 !important;
     color: #E2E8F0 !important;
     font-family: 'Syne', sans-serif !important;
 }
-.block-container { padding: 1rem 1.5rem !important; }
+
+/* ── FIX: Remove Streamlit top header bar and padding that clipped the banner */
+[data-testid="stHeader"]           { display: none !important; }
+[data-testid="stToolbar"]          { display: none !important; }
+[data-testid="stDecoration"]       { display: none !important; }
+[data-testid="stAppViewContainer"] > .main > .block-container {
+    padding-top: 0.5rem !important;
+}
+.block-container { padding: 0.5rem 1.5rem 1rem 1.5rem !important; }
 
 /* METRIC CARDS */
 [data-testid="metric-container"] {
@@ -286,6 +299,9 @@ if c1.button("▶  Start IDS", use_container_width=True):
     if not S["running"]:
         S["running"] = True
         _start_sniffer()
+        # FIX 2: Drain immediately on start so packets appear on the very
+        #         first rerun instead of waiting for the next sleep cycle.
+        _drain_queue()
 
 if c2.button("■  Stop IDS", use_container_width=True):
     S["running"] = False
@@ -524,6 +540,8 @@ with breakdown_col:
         </div>""", unsafe_allow_html=True)
 
 # ── Auto-refresh ──────────────────────────────────────────────────────────────
+# FIX 3: Reduced sleep from 1s → 0.3s so packets appear ~3x faster after
+#         Start IDS is clicked. Functionality is identical — just faster polling.
 if S["running"]:
-    time.sleep(1)
+    time.sleep(0.3)
     st.rerun()

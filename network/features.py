@@ -2,6 +2,13 @@
 network/features.py
 Real-time feature extractor from live Scapy packets.
 Maps to the 30 selected_columns used by the hybrid model.
+
+FIX: Original code used duration = 1e-6 when ts == start_ts (first packet).
+     This made Fwd Packets/s = 1,000,000+ which is the #1 SHAP feature —
+     driving the autoencoder to score 1.000 on every new connection.
+     Fixed by:
+       1. Skipping flows with < 2 forward packets (no meaningful rate yet)
+       2. Clamping minimum duration to 0.5s for realistic rate computation
 """
 import time
 import numpy as np
@@ -36,7 +43,6 @@ def extract_features(packet) -> dict | None:
         pkt_len = len(packet)
         ts = time.time()
 
-        # Determine transport layer
         proto_num = 0
         sport, dport = 0, 0
         tcp_win_fwd, tcp_win_bwd = 0, 0
@@ -54,12 +60,11 @@ def extract_features(packet) -> dict | None:
             sport, dport = udp.sport, udp.dport
             header_len = header_len + 8
         else:
-            return None   # Skip non-TCP/UDP
+            return None
 
         flow_key = (ip.src, ip.dst, sport, dport, proto_num)
         rev_key  = (ip.dst, ip.src, dport, sport, proto_num)
 
-        # Init or update flow record
         if flow_key not in _flow_cache:
             _flow_cache[flow_key] = {
                 'fwd_pkts': [], 'bwd_pkts': [],
@@ -70,7 +75,6 @@ def extract_features(packet) -> dict | None:
         flow = _flow_cache[flow_key]
         rev  = _flow_cache.get(rev_key, None)
 
-        # Classify direction: fwd = initiator, bwd = reverse
         if rev is None:
             flow['fwd_pkts'].append(pkt_len)
             flow['fwd_ts'].append(ts)
@@ -83,7 +87,10 @@ def extract_features(packet) -> dict | None:
         fwd_ts   = flow['fwd_ts']
         bwd_ts   = flow['bwd_ts']
 
-        # Derived stats
+        # Need at least 2 forward packets for meaningful rate/IAT computation
+        if len(fwd_pkts) < 2:
+            return None
+
         all_lens   = fwd_pkts + bwd_pkts
         fwd_lens   = fwd_pkts if fwd_pkts else [0]
         bwd_lens   = bwd_pkts if bwd_pkts else [0]
@@ -91,7 +98,10 @@ def extract_features(packet) -> dict | None:
         bwd_iat    = np.diff(bwd_ts).tolist() if len(bwd_ts) > 1 else [0]
         all_ts     = sorted(fwd_ts + bwd_ts)
         flow_iat   = np.diff(all_ts).tolist() if len(all_ts) > 1 else [0]
-        duration   = (ts - flow['start_ts']) if ts > flow['start_ts'] else 1e-6
+
+        # Clamp to 0.5s minimum so bursts don't produce millions pkts/s
+        raw_duration = ts - flow['start_ts']
+        duration = max(raw_duration, 0.5)
 
         features = {
             'Destination Port':              dport,
@@ -126,7 +136,6 @@ def extract_features(packet) -> dict | None:
             'act_data_pkt_fwd':              len([p for p in fwd_lens if p > header_len]),
         }
 
-        # Keep cache bounded
         if len(_flow_cache) > 5000:
             oldest = list(_flow_cache.keys())[0]
             del _flow_cache[oldest]

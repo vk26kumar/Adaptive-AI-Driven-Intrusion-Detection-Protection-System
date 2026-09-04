@@ -1,0 +1,49 @@
+{
+  "seq_len": 10,
+  "epochs": 4,
+  "train_windows": 128598,
+  "test_windows": 55115,
+  "train_seconds": 12.5,
+  "lstm_window_level": {
+    "accuracy": 0.8891,
+    "precision": 0.7896,
+    "recall": 0.6269,
+    "f1": 0.6989,
+    "fpr": 0.0431
+  },
+  "hybrid_anyflow_window_level": {
+    "accuracy": 0.9593,
+    "precision": 0.8392,
+    "recall": 0.9916,
+    "f1": 0.909,
+    "fpr": 0.0491
+  },
+  "per_family": {
+    "DDoS": {
+      "windows": 2690,
+      "lstm_recall": 0.9937,
+      "hybrid_anyflow_recall": 1.0
+    },
+    "DoS": {
+      "windows": 2668,
+      "lstm_recall": 0.0034,
+      "hybrid_anyflow_recall": 0.9674
+    },
+    "PortScan": {
+      "windows": 4461,
+      "lstm_recall": 0.9686,
+      "hybrid_anyflow_recall": 0.9984
+    },
+    "BruteForce": {
+      "windows": 1186,
+      "lstm_recall": 0.0135,
+      "hybrid_anyflow_recall": 1.0
+    },
+    "Bot": {
+      "windows": 301,
+      "lstm_recall": 0.2392,
+      "hybrid_anyflow_recall": 0.9967
+    }
+  },
+  "note": "Chronological 70/30 split per capture day; window = 10 consecutive flows; ATTACK if any flow in the window is an attack."
+}

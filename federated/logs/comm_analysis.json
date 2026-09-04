@@ -1,0 +1,32 @@
+{
+  "centralized": {
+    "training_rows": 2264594,
+    "raw_bytes_uploaded": 274015874,
+    "raw_megabytes": 274.0
+  },
+  "federated": {
+    "autoencoder": {
+      "rounds": 15,
+      "bytes_per_round_all_nodes": 933056,
+      "bytes_per_node_per_round": 116632,
+      "bytes_total": 13995840,
+      "rounds_to_99pct_of_final_recall": 4,
+      "final_recall": 0.28160388777806666,
+      "final_fpr": 0.00665390875896353
+    },
+    "xgboost": {
+      "rounds": 40,
+      "bytes_down_total": 253520772,
+      "bytes_up_total_estimate": 3123242,
+      "bytes_total": 256644014,
+      "final_model_bytes": 3123242,
+      "final_trees": 480,
+      "rounds_to_99pct_of_final_auc": 1,
+      "final_auc": 0.9998568739806069
+    },
+    "bytes_total_all_models": 270639854,
+    "megabytes_total": 270.6
+  },
+  "ratio_federated_to_raw_upload": 0.988,
+  "privacy_note": "Federated traffic consists of model parameters and trees only; no flow record, IP address or port ever leaves a node."
+}

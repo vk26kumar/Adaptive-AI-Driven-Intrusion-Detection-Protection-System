@@ -1,0 +1,133 @@
+{
+  "test_rows": 283074,
+  "test_attacks": 55741,
+  "family_counts": {
+    "BENIGN": 227333,
+    "DDoS": 12740,
+    "DoS": 25194,
+    "PortScan": 15965,
+    "BruteForce": 1422,
+    "Bot": 202,
+    "WebAttack": 215,
+    "Other": 3
+  },
+  "phase1_ddos_only": {
+    "ae_threshold": 0.000114912769,
+    "autoencoder_only": {
+      "accuracy": 0.856,
+      "precision": 0.8145,
+      "recall": 0.3477,
+      "f1": 0.4873,
+      "fpr": 0.0194
+    },
+    "xgboost_only": {
+      "accuracy": 0.8487,
+      "precision": 0.9967,
+      "recall": 0.2324,
+      "f1": 0.3769,
+      "fpr": 0.0002
+    },
+    "hybrid": {
+      "accuracy": 0.8892,
+      "precision": 0.8662,
+      "recall": 0.5175,
+      "f1": 0.6479,
+      "fpr": 0.0196
+    },
+    "hybrid_recall_per_family": {
+      "DDoS": 0.9999,
+      "DoS": 0.6049,
+      "PortScan": 0.0527,
+      "BruteForce": 0.0014,
+      "Bot": 0.0594,
+      "WebAttack": 0.0372,
+      "Other": 1.0
+    }
+  },
+  "centralized_phase2": {
+    "ae_threshold": 3.2080748496809974e-05,
+    "autoencoder_only": {
+      "accuracy": 0.8607,
+      "precision": 0.9476,
+      "recall": 0.3095,
+      "f1": 0.4666,
+      "fpr": 0.0042
+    },
+    "xgboost_only": {
+      "accuracy": 0.9988,
+      "precision": 0.9972,
+      "recall": 0.9968,
+      "f1": 0.997,
+      "fpr": 0.0007
+    },
+    "hybrid": {
+      "accuracy": 0.9955,
+      "precision": 0.9804,
+      "recall": 0.9968,
+      "f1": 0.9886,
+      "fpr": 0.0049
+    },
+    "hybrid_recall_per_family": {
+      "DDoS": 0.9997,
+      "DoS": 0.9993,
+      "PortScan": 1.0,
+      "BruteForce": 0.9993,
+      "Bot": 0.6683,
+      "WebAttack": 0.6,
+      "Other": 1.0
+    },
+    "train_seconds": 178.0,
+    "trees": 480,
+    "training_rows_moved_to_server": 2264594
+  },
+  "federated_phase2": {
+    "ae_threshold": 4.525248004938476e-05,
+    "autoencoder_only": {
+      "accuracy": 0.8533,
+      "precision": 0.91,
+      "recall": 0.2828,
+      "f1": 0.4315,
+      "fpr": 0.0069
+    },
+    "xgboost_only": {
+      "accuracy": 0.9977,
+      "precision": 0.9892,
+      "recall": 0.9994,
+      "f1": 0.9943,
+      "fpr": 0.0027
+    },
+    "hybrid": {
+      "accuracy": 0.9923,
+      "precision": 0.9627,
+      "recall": 0.9995,
+      "f1": 0.9807,
+      "fpr": 0.0095
+    },
+    "hybrid_recall_per_family": {
+      "DDoS": 0.9997,
+      "DoS": 0.9992,
+      "PortScan": 1.0,
+      "BruteForce": 1.0,
+      "Bot": 0.9752,
+      "WebAttack": 0.9953,
+      "Other": 1.0
+    },
+    "communication": {
+      "ae": {
+        "rounds": 16,
+        "bytes_total": 13995840,
+        "final_model_bytes": null,
+        "dp": false,
+        "tls": true
+      },
+      "xgb": {
+        "rounds": 40,
+        "bytes_total": 253520772,
+        "final_model_bytes": 3123242,
+        "dp": null,
+        "tls": true
+      }
+    },
+    "training_rows_moved_to_server": 0
+  }
+}

@@ -26,5 +26,5 @@ hybrid_model_fl/
 hybrid_model_phase1_backup/
 
 # runtime state
-logs/
+/logs/
 hybrid_model_fl_dp/

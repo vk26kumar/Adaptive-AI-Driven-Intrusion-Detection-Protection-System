@@ -1,0 +1,62 @@
+{
+  "delta": 1e-05,
+  "num_clients": 4,
+  "note": "Client-level (eps, delta)-DP via RDP accounting of the Gaussian mechanism with all clients participating each round; smaller epsilon = stronger privacy. noise std per weight = noise_multiplier * clipping_norm / 4.",
+  "runs": [
+    {
+      "setting": "no DP",
+      "noise_multiplier": 0.0,
+      "clipping_norm": null,
+      "rounds": 15,
+      "epsilon": Infinity,
+      "delta": 1e-05,
+      "benign_mse": 2.8099380870116875e-05,
+      "ae_recall": 0.28160388777806666,
+      "ae_fpr": 0.00665390875896353
+    },
+    {
+      "setting": "noise 0.01, clip 1.0, 40 rounds",
+      "noise_multiplier": 0.01,
+      "clipping_norm": 1.0,
+      "rounds": 40,
+      "epsilon": 203151.292546497,
+      "delta": 1e-05,
+      "benign_mse": 3.32523813995067e-05,
+      "ae_recall": 0.30037136039898815,
+      "ae_fpr": 0.003395899407477137
+    },
+    {
+      "setting": "noise 0.01, clip 1.0, 15 rounds",
+      "noise_multiplier": 0.01,
+      "clipping_norm": 1.0,
+      "rounds": 15,
+      "epsilon": 76901.29254649702,
+      "delta": 1e-05,
+      "benign_mse": 0.0009640976204536855,
+      "ae_recall": 0.005023232450081627,
+      "ae_fpr": 0.00021114400460997744
+    },
+    {
+      "setting": "noise 0.05, clip 20.0, 15 rounds",
+      "noise_multiplier": 0.05,
+      "clipping_norm": 20.0,
+      "rounds": 15,
+      "epsilon": 3371.8820910828367,
+      "delta": 1e-05,
+      "benign_mse": 0.18543557822704315,
+      "ae_recall": 0.0,
+      "ae_fpr": 0.0
+    },
+    {
+      "setting": "noise 0.3, clip 1.0, 15 rounds",
+      "noise_multiplier": 0.3,
+      "clipping_norm": 1.0,
+      "rounds": 15,
+      "epsilon": 145.28268143685648,
+      "delta": 1e-05,
+      "benign_mse": 0.1500720977783203,
+      "ae_recall": 0.0,
+      "ae_fpr": 0.0
+    }
+  ]
+}

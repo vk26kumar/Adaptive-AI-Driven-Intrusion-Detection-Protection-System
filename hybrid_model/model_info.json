@@ -1,0 +1,73 @@
+{
+  "source": "federated (Flower) global model",
+  "exported": "2026-09-04 15:24:25",
+  "nodes": 4,
+  "node_attack_families": {
+    "0": [
+      "DDoS",
+      "DoS"
+    ],
+    "1": [
+      "PortScan",
+      "Bot"
+    ],
+    "2": [
+      "BruteForce",
+      "WebAttack"
+    ],
+    "3": [
+      "Other"
+    ]
+  },
+  "training_data": "CIC-IDS2017, all 8 days, 30 selected features",
+  "test_metrics": {
+    "ae_threshold": 4.525248004938476e-05,
+    "autoencoder_only": {
+      "accuracy": 0.8533,
+      "precision": 0.91,
+      "recall": 0.2828,
+      "f1": 0.4315,
+      "fpr": 0.0069
+    },
+    "xgboost_only": {
+      "accuracy": 0.9977,
+      "precision": 0.9892,
+      "recall": 0.9994,
+      "f1": 0.9943,
+      "fpr": 0.0027
+    },
+    "hybrid": {
+      "accuracy": 0.9923,
+      "precision": 0.9627,
+      "recall": 0.9995,
+      "f1": 0.9807,
+      "fpr": 0.0095
+    },
+    "hybrid_recall_per_family": {
+      "DDoS": 0.9997,
+      "DoS": 0.9992,
+      "PortScan": 1.0,
+      "BruteForce": 1.0,
+      "Bot": 0.9752,
+      "WebAttack": 0.9953,
+      "Other": 1.0
+    },
+    "communication": {
+      "ae": {
+        "rounds": 16,
+        "bytes_total": 13995840,
+        "final_model_bytes": null,
+        "dp": false,
+        "tls": true
+      },
+      "xgb": {
+        "rounds": 40,
+        "bytes_total": 253520772,
+        "final_model_bytes": 3123242,
+        "dp": null,
+        "tls": true
+      }
+    },
+    "training_rows_moved_to_server": 0
+  }
+}

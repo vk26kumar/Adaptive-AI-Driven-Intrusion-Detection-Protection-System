@@ -1,0 +1,29 @@
+{
+  "attack_family": {
+    "BENIGN": "BENIGN",
+    "DDoS": "DDoS",
+    "DoS Hulk": "DoS",
+    "DoS GoldenEye": "DoS",
+    "DoS slowloris": "DoS",
+    "DoS Slowhttptest": "DoS",
+    "PortScan": "PortScan",
+    "FTP-Patator": "BruteForce",
+    "SSH-Patator": "BruteForce",
+    "Bot": "Bot",
+    "Web Attack Brute Force": "WebAttack",
+    "Web Attack XSS": "WebAttack",
+    "Web Attack Sql Injection": "WebAttack",
+    "Infiltration": "Other",
+    "Heartbleed": "Other"
+  },
+  "family_ids": {
+    "BENIGN": 0,
+    "DDoS": 1,
+    "DoS": 2,
+    "PortScan": 3,
+    "BruteForce": 4,
+    "Bot": 5,
+    "WebAttack": 6,
+    "Other": 7
+  }
+}

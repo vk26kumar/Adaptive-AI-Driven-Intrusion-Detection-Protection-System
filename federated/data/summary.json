@@ -1,0 +1,66 @@
+{
+  "total_rows": 2830743,
+  "test_rows": 566149,
+  "families": {
+    "BENIGN": 2273097,
+    "DoS": 252661,
+    "PortScan": 158930,
+    "DDoS": 128027,
+    "BruteForce": 13835,
+    "WebAttack": 2180,
+    "Bot": 1966,
+    "Other": 47
+  },
+  "nodes": {
+    "0": {
+      "rows": 668245,
+      "attacks": 304550,
+      "families": {
+        "BENIGN": 363695,
+        "DoS": 202129,
+        "DDoS": 102421
+      },
+      "assigned_families": [
+        "DDoS",
+        "DoS"
+      ]
+    },
+    "1": {
+      "rows": 492412,
+      "attacks": 128717,
+      "families": {
+        "BENIGN": 363695,
+        "PortScan": 127144,
+        "Bot": 1573
+      },
+      "assigned_families": [
+        "PortScan",
+        "Bot"
+      ]
+    },
+    "2": {
+      "rows": 376508,
+      "attacks": 12812,
+      "families": {
+        "BENIGN": 363696,
+        "BruteForce": 11068,
+        "WebAttack": 1744
+      },
+      "assigned_families": [
+        "BruteForce",
+        "WebAttack"
+      ]
+    },
+    "3": {
+      "rows": 727429,
+      "attacks": 38,
+      "families": {
+        "BENIGN": 727391,
+        "Other": 38
+      },
+      "assigned_families": [
+        "Other"
+      ]
+    }
+  }
+}

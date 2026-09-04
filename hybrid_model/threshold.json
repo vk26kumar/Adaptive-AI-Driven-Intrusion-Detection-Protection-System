@@ -1,1 +1,20 @@
-{"threshold": 0.5}
+{
+  "anomaly_multiplier": 10.0,
+  "decision_threshold": 0.5,
+  "threshold_percentile": 90,
+  "calibration_rows": 283075,
+  "max_fpr_budget": 0.01,
+  "ae_threshold": 4.525248004938476e-05,
+  "ml_threshold": 0.164414,
+  "ml_calibration": {
+    "ml_threshold": 0.164414,
+    "f1": 0.9946129147342133,
+    "recall": 0.999462249946225,
+    "fpr": 0.002525441402279937
+  },
+  "calibration_hybrid": {
+    "recall": 0.99949809994981,
+    "fpr": 0.009059031092847369,
+    "accuracy": 0.992627395566546
+  }
+}

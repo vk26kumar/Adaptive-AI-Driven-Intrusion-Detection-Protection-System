@@ -18,3 +18,13 @@ dist/
 build/
 .DS_Store
 Thumbs.db
+# Phase 2 federated artifacts (regenerate with federated/prepare_data + run_federated)
+federated/data/*.npz
+federated/logs/*.log
+federated/certs/
+hybrid_model_fl/
+hybrid_model_phase1_backup/
+
+# runtime state
+logs/
+hybrid_model_fl_dp/

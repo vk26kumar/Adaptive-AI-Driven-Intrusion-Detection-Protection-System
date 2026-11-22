@@ -7,7 +7,9 @@ Server-side calibration of the global model's operating point.
 Reads the federated global Autoencoder and XGBoost booster, computes on the
 CALIBRATION half of the hold-out set
   * ae_threshold  : 90th percentile of benign reconstruction error
-  * ml_threshold  : P(attack) cutoff with the best F1 under a 1% FPR budget
+  * ml_threshold  : P(attack) cutoff with the best F1 among those within 1 point of the best macro (per-family mean)
+                    recall, under a 1% FPR budget
+                    (see core.decision.best_ml_threshold for why not plain F1)
 and writes them to <model_dir>/threshold.json.  Called automatically at the
 end of federated/server.py; run it by hand after changing the multiplier or
 the FPR budget.  Raw traffic never leaves the nodes: the calibration split is
@@ -31,7 +33,7 @@ def calibrate(model_dir: str = C.FL_MODEL_DIR, max_fpr: float = 0.01, verbose: b
     import xgboost as xgb
     from tensorflow.keras.models import load_model
 
-    X, y, _ = load_test("calib")
+    X, y, fam = load_test("calib")
     cfg = {"anomaly_multiplier": C.ANOMALY_MULTIPLIER, "decision_threshold": 0.5,
            "threshold_percentile": C.AE_THRESHOLD_PERCENTILE, "calibration_rows": int(len(y)),
            "max_fpr_budget": max_fpr}
@@ -49,7 +51,7 @@ def calibrate(model_dir: str = C.FL_MODEL_DIR, max_fpr: float = 0.01, verbose: b
     if os.path.exists(xgb_path):
         bst = xgb.Booster(); bst.load_model(xgb_path)
         p = bst.predict(xgb.DMatrix(X))
-        best = best_ml_threshold(y, p, max_fpr=max_fpr)
+        best = best_ml_threshold(y, p, max_fpr=max_fpr, family=fam)
         cfg["ml_threshold"] = best["ml_threshold"]
         cfg["ml_calibration"] = best
     else:

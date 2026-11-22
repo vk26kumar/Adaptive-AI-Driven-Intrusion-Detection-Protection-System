@@ -18,16 +18,17 @@ live Streamlit dashboard with per-prediction explainability.
 | Model | Accuracy | Precision | Recall | F1 | FPR | Raw rows sent to server |
 |---|---|---|---|---|---|---|
 | Phase 1 hybrid (DDoS day only) | 88.92% | 86.62% | 51.75% | 64.79% | 1.96% | 225,745 |
-| Phase 2 centralized hybrid | 99.55% | 98.04% | 99.68% | 98.86% | 0.49% | 2,264,594 |
-| **Phase 2 federated hybrid** | **99.23%** | 96.27% | **99.95%** | 98.07% | 0.95% | **0** |
+| Phase 2 centralized hybrid | 99.31% | 96.61% | 100.00% | 98.27% | 0.86% | 2,264,594 |
+| **Phase 2 federated hybrid** | **99.28%** | 96.53% | **99.94%** | 98.20% | 0.88% | **0** |
 
-Recall per attack family (federated hybrid): DDoS 99.97%, DoS 99.92%, PortScan 100%, BruteForce 100%,
-Bot 97.5%, WebAttack 99.5%. The Phase 1 model detected 5% of port scans and 0.1% of brute-force flows
+Recall per attack family (federated hybrid): DDoS 99.94%, DoS 99.94%, PortScan 100%, BruteForce 100%,
+Bot 97.0%, WebAttack 98.6%. The Phase 1 model detected 5% of port scans and 0.1% of brute-force flows
 on the same data.
 
 Communication cost of federated training (4 nodes, TLS): Autoencoder 14 MB total over 15 rounds
-(117 KB per node per round); XGBoost 254 MB over 40 rounds (the global booster grows to 3.1 MB).
-All numbers are produced by `python -m federated.evaluate` and stored in `federated/logs/comparison.json`.
+(117 KB per node per round); XGBoost 256 MB over 40 rounds (the global booster grows to 3.1 MB).
+All numbers are produced by `python -m federated.evaluate` and stored in `federated/logs/comparison.json`
+(retrain of Nov 2026 with the family-aware calibration described under *Federated nodes* below).
 
 ---
 
@@ -102,7 +103,7 @@ python -m federated.gen_certs               # TLS certificates (once)
 python -m federated.run_federated --tls     # Autoencoder (FedAvg, 15 rounds) then XGBoost (bagging, 40 rounds)
 python -m federated.evaluate                # centralized baseline + comparison table
 python -m federated.export_global_model     # dashboard now uses the federated model
-python -m pytest tests -q                   # 16 tests incl. dataset replay regression
+python -m pytest tests -q                   # 18 tests incl. dataset replay regression
 streamlit run app.py
 ```
 
@@ -129,7 +130,7 @@ clients. Privacy in this deployment rests on the architecture (raw traffic never
 
 ### Communication and convergence (`python -m federated.comm_analysis`)
 
-Autoencoder: 117 KB per node per round, 14 MB total, recall converged by round 4. XGBoost: 257 MB
+Autoencoder: 117 KB per node per round, 14 MB total, recall still improving until round 14. XGBoost: 256 MB
 total because the growing 3.1 MB booster is redistributed each round (delta-only transfer would cut
 this ~20x). Centralized training would instead upload 274 MB of raw flows.
 
@@ -160,6 +161,16 @@ documented in `docs/Phase2_Report.md` section 7.5; not used in production.
 Bagged XGBoost under this skew ranks flows almost perfectly (AUC 0.9998) but its raw probabilities
 sit low, so the server calibrates the operating point on its own labelled calibration split (even
 rows of the hold-out) and reports on the other half. Nothing tuned on one half is measured on it.
+
+The cutoff is the best-F1 one **among cutoffs within 1 point of the best achievable macro recall**
+(mean detection rate over attack families), under a 1% FPR budget. Plain best-F1 is blind to Bot and
+WebAttack (~0.4% of attacks): in the Nov 2026 retrain it picked a cutoff that cost Bot 26 and WebAttack
+38 recall points for +0.0002 F1, and the same flaw is why the earlier centralized baseline showed
+67% / 60% on those families. Both baselines now use the family-aware rule (`core/decision.best_ml_threshold`).
+
+The dashboard's attack simulator starts each profile from the family **medoid** (a real flow nearest
+the family median), not the per-feature median, which is not a real flow and put the Bot profile in
+benign territory.
 
 ---
 

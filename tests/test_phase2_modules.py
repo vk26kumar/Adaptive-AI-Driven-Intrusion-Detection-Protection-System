@@ -77,3 +77,36 @@ def test_lime_explanation_has_expected_shape():
     assert len(e["coefficients"]) == 5
     assert 0.0 <= e["intercept"] <= 1.0
     assert all(isinstance(v, float) for v in e["coefficients"].values())
+
+
+def test_every_simulator_profile_gets_its_true_verdict():
+    """Each dashboard profile (one real flow per family) must be classified as
+    its ground truth; a demo button that shows a miss is a visible defect.
+    Phase 2 used per-feature medians and the Bot profile came out NORMAL."""
+    from core.simulator import simulate_packet, PROFILES
+    wrong = {}
+    for profile in PROFILES:
+        r = simulate_packet(profile=profile)
+        if r["label"] != r["truth"]:
+            wrong[profile] = (r["label"], r["final_score"])
+    assert not wrong, f"profiles misclassified: {wrong}"
+
+
+def test_family_aware_calibration_keeps_rare_families():
+    """Plain F1 trades a rare family away for a tiny F1 gain; the family-aware
+    rule must not (core.decision.best_ml_threshold, family= argument)."""
+    import numpy as np
+    from core.decision import best_ml_threshold
+    rng = np.random.default_rng(0)
+    benign = rng.uniform(0.00, 0.30, 20000)
+    common = rng.uniform(0.60, 1.00, 5000)          # big family, clearly separated
+    rare = rng.uniform(0.27, 0.33, 100)              # small family, overlaps benign tail
+    p = np.concatenate([benign, common, rare])
+    y = np.r_[np.zeros(20000), np.ones(5100)]
+    fam = np.r_[np.zeros(20000), np.ones(5000), np.full(100, 2)]
+    plain = best_ml_threshold(y, p, max_fpr=0.10)
+    aware = best_ml_threshold(y, p, max_fpr=0.10, family=fam)
+    rare_recall = lambda t: float((rare > t).mean())
+    assert rare_recall(plain["ml_threshold"]) < 0.6            # F1 gives the rare family up
+    assert rare_recall(aware["ml_threshold"]) > 0.9            # family-aware keeps it
+    assert aware["fpr"] <= 0.10

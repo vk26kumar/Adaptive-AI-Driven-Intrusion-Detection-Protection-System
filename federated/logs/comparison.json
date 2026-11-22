@@ -45,49 +45,49 @@
     }
   },
   "centralized_phase2": {
-    "ae_threshold": 3.2080748496809974e-05,
+    "ae_threshold": 3.28890819218941e-05,
     "autoencoder_only": {
-      "accuracy": 0.8607,
-      "precision": 0.9476,
-      "recall": 0.3095,
-      "f1": 0.4666,
-      "fpr": 0.0042
+      "accuracy": 0.8634,
+      "precision": 0.9311,
+      "recall": 0.3309,
+      "f1": 0.4883,
+      "fpr": 0.006
     },
     "xgboost_only": {
-      "accuracy": 0.9988,
-      "precision": 0.9972,
-      "recall": 0.9968,
-      "f1": 0.997,
-      "fpr": 0.0007
+      "accuracy": 0.9979,
+      "precision": 0.9895,
+      "recall": 0.9999,
+      "f1": 0.9947,
+      "fpr": 0.0026
     },
     "hybrid": {
-      "accuracy": 0.9955,
-      "precision": 0.9804,
-      "recall": 0.9968,
-      "f1": 0.9886,
-      "fpr": 0.0049
+      "accuracy": 0.9931,
+      "precision": 0.9661,
+      "recall": 1.0,
+      "f1": 0.9827,
+      "fpr": 0.0086
     },
     "hybrid_recall_per_family": {
-      "DDoS": 0.9997,
-      "DoS": 0.9993,
+      "DDoS": 0.9999,
+      "DoS": 1.0,
       "PortScan": 1.0,
-      "BruteForce": 0.9993,
-      "Bot": 0.6683,
-      "WebAttack": 0.6,
+      "BruteForce": 1.0,
+      "Bot": 0.995,
+      "WebAttack": 1.0,
       "Other": 1.0
     },
-    "train_seconds": 178.0,
+    "train_seconds": 267.5,
     "trees": 480,
     "training_rows_moved_to_server": 2264594
   },
   "federated_phase2": {
-    "ae_threshold": 4.525248004938476e-05,
+    "ae_threshold": 5.070675251772627e-05,
     "autoencoder_only": {
-      "accuracy": 0.8533,
-      "precision": 0.91,
-      "recall": 0.2828,
-      "f1": 0.4315,
-      "fpr": 0.0069
+      "accuracy": 0.8669,
+      "precision": 0.9329,
+      "recall": 0.349,
+      "f1": 0.508,
+      "fpr": 0.0062
     },
     "xgboost_only": {
       "accuracy": 0.9977,
@@ -97,19 +97,19 @@
       "fpr": 0.0027
     },
     "hybrid": {
-      "accuracy": 0.9923,
-      "precision": 0.9627,
-      "recall": 0.9995,
-      "f1": 0.9807,
-      "fpr": 0.0095
+      "accuracy": 0.9928,
+      "precision": 0.9653,
+      "recall": 0.9994,
+      "f1": 0.982,
+      "fpr": 0.0088
     },
     "hybrid_recall_per_family": {
-      "DDoS": 0.9997,
-      "DoS": 0.9992,
+      "DDoS": 0.9994,
+      "DoS": 0.9994,
       "PortScan": 1.0,
       "BruteForce": 1.0,
-      "Bot": 0.9752,
-      "WebAttack": 0.9953,
+      "Bot": 0.9703,
+      "WebAttack": 0.986,
       "Other": 1.0
     },
     "communication": {
@@ -120,10 +120,17 @@
         "dp": false,
         "tls": true
       },
+      "ae_dp": {
+        "rounds": 41,
+        "bytes_total": 37322240,
+        "final_model_bytes": null,
+        "dp": true,
+        "tls": true
+      },
       "xgb": {
         "rounds": 40,
-        "bytes_total": 253520772,
-        "final_model_bytes": 3123242,
+        "bytes_total": 252920492,
+        "final_model_bytes": 3132825,
         "dp": null,
         "tls": true
       }

@@ -125,8 +125,8 @@ def main():
         xgb_c = xgb.train(params, xgb.DMatrix(Xtr, label=ytr), num_boost_round=n_trees)
         central_seconds = time.time() - t0
         from core.decision import best_ml_threshold
-        Xc, yc, _ = load_test("calib")
-        best_c = best_ml_threshold(yc, xgb_c.predict(xgb.DMatrix(Xc)), max_fpr=0.01)
+        Xc, yc, fc = load_test("calib")
+        best_c = best_ml_threshold(yc, xgb_c.predict(xgb.DMatrix(Xc)), max_fpr=0.01, family=fc)   # same rule as federated
         cfg_c = {"ae_threshold": thr_c, "anomaly_multiplier": C.ANOMALY_MULTIPLIER,
                  "ml_threshold": best_c["ml_threshold"], "decision_threshold": 0.5}
         evaluate_pair("centralized_phase2", ae_c, xgb_c, cfg_c, X, y, fam, results)

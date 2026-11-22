@@ -84,15 +84,38 @@ def confidence(final: float, is_attack: bool) -> float:
     return round(float(final * 100 if is_attack else (1 - final) * 100), 1)
 
 
-def best_ml_threshold(y_true, ml_prob, max_fpr: float = 0.01) -> dict:
+MIN_FAMILY_ROWS = 20     # families smaller than this on the calibration set are too noisy to steer the cutoff
+MACRO_TOLERANCE = 0.01   # accept cutoffs within 1 point of the best achievable macro recall
+
+
+def best_ml_threshold(y_true, ml_prob, max_fpr: float = 0.01, family=None) -> dict:
     """
-    Pick the P(attack) cutoff on a calibration set: the one with the best F1
-    among cutoffs whose benign false-positive rate stays under max_fpr.
-    Returns {'ml_threshold', 'f1', 'recall', 'fpr'}.
+    Pick the P(attack) cutoff on a calibration set among cutoffs whose benign
+    false-positive rate stays under max_fpr.
+
+    family=None  -> best F1 (original Phase 2 rule).
+    family=array -> family-aware rule: keep only cutoffs whose MACRO recall
+                    (mean detection rate over attack families with >=
+                    MIN_FAMILY_ROWS calibration rows) is within
+                    MACRO_TOLERANCE of the best achievable, then take the best
+                    F1 among them.  In words: maximise F1, but never by giving
+                    up a rare family.  Plain F1 is blind to Bot and WebAttack
+                    (~0.4% of attacks): in the Nov 2026 retrain it chose a
+                    cutoff on a cliff edge that cost Bot 26 and WebAttack 38
+                    recall points for +0.0002 F1.  Pure macro recall overshoots
+                    the other way (cutoff pushed to the FPR budget edge for
+                    1-2 points of recall), hence the tolerance.
+
+    Returns {'ml_threshold', 'f1', 'recall', 'fpr'} (+ 'macro_recall' and
+    'family_recall' when family is given).
     """
     y = np.asarray(y_true).astype(bool)
     p = np.asarray(ml_prob, dtype=float)
-    best = None
+    fams = []
+    if family is not None:
+        family = np.asarray(family)
+        fams = [f for f in np.unique(family[y]) if (family == f).sum() >= MIN_FAMILY_ROWS]
+    cands = []
     for t in np.unique(np.round(np.quantile(p, np.linspace(0.001, 0.999, 999)), 6)):
         pred = p > t
         tp = (pred & y).sum(); fp = (pred & ~y).sum(); fn = (~pred & y).sum(); tn = (~pred & ~y).sum()
@@ -101,6 +124,15 @@ def best_ml_threshold(y_true, ml_prob, max_fpr: float = 0.01) -> dict:
             continue
         prec = tp / max(tp + fp, 1); rec = tp / max(tp + fn, 1)
         f1 = 2 * prec * rec / max(prec + rec, 1e-9)
-        if best is None or f1 > best["f1"]:
-            best = {"ml_threshold": float(t), "f1": float(f1), "recall": float(rec), "fpr": float(fpr)}
-    return best or {"ml_threshold": 0.5, "f1": 0.0, "recall": 0.0, "fpr": 0.0}
+        cand = {"ml_threshold": float(t), "f1": float(f1), "recall": float(rec), "fpr": float(fpr)}
+        if fams:
+            fr = {int(f): float(pred[family == f].mean()) for f in fams}
+            cand["family_recall"] = fr
+            cand["macro_recall"] = float(np.mean(list(fr.values())))
+        cands.append(cand)
+    if not cands:
+        return {"ml_threshold": 0.5, "f1": 0.0, "recall": 0.0, "fpr": 0.0}
+    if fams:
+        floor = max(c["macro_recall"] for c in cands) - MACRO_TOLERANCE
+        cands = [c for c in cands if c["macro_recall"] >= floor]
+    return max(cands, key=lambda c: c["f1"])

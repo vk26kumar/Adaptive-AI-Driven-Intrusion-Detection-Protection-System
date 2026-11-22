@@ -224,7 +224,11 @@ def fig_platt(data):
 
 def fig_live_fp():
     labels = ["Phase 2 live path\n(first run)", "Seven defects fixed,\nunicast scope", "+ local\nbaseline"]
-    vals = [1400 / 1875 * 100, 64 / 930 * 100, 15 / 1359 * 100]
+    # first run: Phase 2 live path, measured once (code since changed); the other two:
+    # federated/logs/live_check_benign_no_baseline.json and live_check_benign.json
+    vals = [1400 / 1875 * 100]
+    for f in ("live_check_benign_no_baseline.json", "live_check_benign.json"):
+        d = load(f); vals.append(d["packets_attack"] / d["packets"] * 100)
     fig, ax = plt.subplots(figsize=(7.5, 3.4))
     ax.bar(labels, vals, color=BLUE, width=0.5)
     for i, v in enumerate(vals):

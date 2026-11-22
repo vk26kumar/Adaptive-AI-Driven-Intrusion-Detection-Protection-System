@@ -403,7 +403,7 @@ TAB|Table 8.5: Defects found by live testing
 | 7 | multicast and broadcast judged by the model | mDNS and SSDP from other devices caused most alarms | unicast scope |
 
 FIG|fig_live_fp.png|Figure 8.6: Benign live packets flagged as attacks|4.8
-On benign traffic the share of flagged packets fell from 74.7% (first run, during a large download) to 6.9% after the fixes. Every remaining false alarm came from the autoencoder, while XGBoost gave P(attack) close to zero, mostly on long-lived encrypted keep-alive connections that the 2017 test network barely contained. Learning a local baseline for four minutes (3,337 flow snapshots) showed that the 90th-percentile reconstruction error of this network is 6.7 times that of the dataset. With the baseline, a separate 90-second capture flagged 15 of 1,359 packets (1.1%), all of them outbound HTTPS connections of the laptop itself, which the prevention engine can never block because their source is a private address. The median processing time per packet was 13 to 17 ms.
+On benign traffic the share of flagged packets fell from 74.7% (the first run, during a large download) to 11.8% (154 of 1,301 packets) after the fixes. Every remaining false alarm came from the autoencoder, while XGBoost gave P(attack) close to zero, mostly on long-lived encrypted keep-alive connections that the 2017 test network barely contained. Learning a local baseline for four minutes (3,337 flow snapshots) showed that the 90th-percentile reconstruction error of this network is 6.7 times that of the dataset. With the baseline, a 90-second capture taken directly afterwards flagged 11 of 1,284 packets (0.9%), all on two outbound HTTPS connections of the laptop itself, which the prevention engine can never block because their source is a private address. Both runs are stored in the project logs. The median processing time per packet was 12 to 17 ms.
 
 A port scan of 100 ports of the laptop itself, over the loopback interface, gave the most important finding. The model classified 98 probe flows and flagged none. Table 8.6 shows why.
 
@@ -415,7 +415,7 @@ TAB|Table 8.6: A live scan probe compared with a CIC-IDS2017 PortScan flow
 | Backward packet length (minimum) | 0 | 6 |
 | Hybrid score | 0.009 (NORMAL) | 0.970 (ATTACK) |
 
-In the server hold-out, 100% of PortScan flows carry an initial TCP window of 29,200 (the Linux default of the attacker machine) or 1,024 (the nmap SYN scan), and the reset reply carries 6 bytes of Ethernet padding. Changing only these two fields of the live probe raises its score from 0.009 to 0.94. The model has therefore learned the 2017 attacker's machine, not scanning behaviour, an example of the shortcut learning described in [18]-[20]. A single probe contains no evidence of scanning; the evidence is how many ports one source touches. The behavioural detector (Section 5.6) detected the live scan, raising alerts at 20 and 40 distinct ports and naming the scanner as the source.
+In the server hold-out, 99.9% of PortScan flows carry an initial TCP window of 29,200 (the Linux default of the attacker machine) or 1,024 (the nmap SYN scan), and the reset reply carries 6 bytes of Ethernet padding. Changing only these two fields of the live probe raises its score from 0.009 to 0.94. The model has therefore learned the 2017 attacker's machine, not scanning behaviour, an example of the shortcut learning described in [18]-[20]. A single probe contains no evidence of scanning; the evidence is how many ports one source touches. The behavioural detector (Section 5.6) detected the live scan, raising alerts at 20 and 40 distinct ports and naming the scanner as the source.
 
 ## 8.10 Prevention on the Real Firewall
 The prevention engine was tested end to end against Windows Defender Firewall with a public test address (45.33.32.156, scanme.nmap.org). With administrator rights, the third alert with a score of at least 0.75 created an inbound block rule, which was confirmed with "netsh advfirewall firewall show rule". A private address with the same three alerts was refused, and undo deleted the rule, leaving no rule behind. Without administrator rights the engine recorded the "requires elevation" error and marked the block as inactive instead of reporting protection that did not exist.
@@ -474,7 +474,7 @@ Testing beyond the dataset changed the picture in useful ways. It found seven de
 ## 10.2 Major Outcomes
 - Federated training of a hybrid IDS over four non-IID nodes with TLS, at 0.03 points of accuracy below centralised training.
 - A family-aware calibration rule that keeps rare attack families, and Platt scaling that turns scores into calibrated probabilities without changing any decision.
-- A live pipeline validated with Npcap, seven live defects fixed, a behavioural port-scan detector and a local baseline that cut live false alarms from 74.7% to 1.1% of packets.
+- A live pipeline validated with Npcap, seven live defects fixed, a behavioural port-scan detector and a local baseline that cut live false alarms from 74.7% to 0.9% of packets.
 - Prevention verified on the real Windows firewall, with allowlist, audit and undo.
 - Measured, reproducible results: communication cost, differential privacy, a temporal model, live tests and a cross-dataset test, all with scripts and logged outputs, and 29 automated tests.
 

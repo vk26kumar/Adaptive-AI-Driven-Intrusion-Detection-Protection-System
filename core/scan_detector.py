@@ -5,7 +5,7 @@ probing many destination ports of one host).
 
 Why a rule next to the ML model: live testing (network/live_check.py) showed
 that the per-flow model does not recognise scanning BEHAVIOUR but the
-CIC-IDS2017 testbed: 100% of its PortScan flows carry the attacker's TCP window
+CIC-IDS2017 testbed: 99.9% of its PortScan flows carry the attacker's TCP window
 (29200 = Linux/Kali default, or 1024 = nmap SYN scan) and a 6-byte Ethernet
 padding on the RST.  A connect() scan from Windows (window 65535) over loopback
 (no padding) is a per-flow twin of a dataset PortScan flow, yet scores 0.009;

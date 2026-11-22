@@ -340,7 +340,7 @@ para("Machine-learning intrusion detection needs large amounts of labelled netwo
      "uploaded. Each alert is explained with SHAP and a LIME-style surrogate, logged, and, when confirmed, blocked at the "
      "host firewall, which was verified on the real Windows firewall. Testing beyond the dataset found seven defects in the "
      "live capture path, including one that hid port scans; after the fixes and a local baseline, live false alarms fell "
-     "from 74.7% to 1.1% of benign packets. It also showed that the supervised model learned the 2017 test network's "
+     "from 74.7% to 0.9% of benign packets. It also showed that the supervised model learned the 2017 test network's "
      "attacker machine rather than scanning behaviour, so a behavioural port-scan detector was added, and that the model "
      "detects only 4.2% of the attacks in CSE-CIC-IDS2018. These negative results mark where the dataset accuracy stops "
      "being valid and motivate federated training with more diverse data.")
@@ -472,7 +472,7 @@ doc.add_paragraph("References", style="Heading 1")
 REFS = [
     "D. E. Denning, “An intrusion-detection model,” IEEE Transactions on Software Engineering, vol. SE-13, no. 2, pp. 222-232, 1987.",
     "M. Roesch, “Snort: Lightweight intrusion detection for networks,” in Proc. 13th USENIX Conference on System Administration (LISA), 1999, pp. 229-238.",
-    "P. Garcia-Teodoro, J. Diaz-Verdejo, G. Macia-Fernandez, and E. Vazquez, “Anomaly-based network intrusion detection: Techniques, systems and challenges,” Computers & Security, vol. 28, no. 1-2, pp. 18-28, 2009.",
+    "P. García-Teodoro, J. Díaz-Verdejo, G. Maciá-Fernández, and E. Vázquez, “Anomaly-based network intrusion detection: Techniques, systems and challenges,” Computers & Security, vol. 28, no. 1-2, pp. 18-28, 2009.",
     "A. L. Buczak and E. Guven, “A survey of data mining and machine learning methods for cyber security intrusion detection,” IEEE Communications Surveys & Tutorials, vol. 18, no. 2, pp. 1153-1176, 2016.",
     "I. Sharafaldin, A. H. Lashkari, and A. A. Ghorbani, “Toward generating a new intrusion detection dataset and intrusion traffic characterization,” in Proc. 4th International Conference on Information Systems Security and Privacy (ICISSP), 2018, pp. 108-116.",
     "G. Engelen, V. Rimmer, and W. Joosen, “Troubleshooting an intrusion detection dataset: the CICIDS2017 case study,” in Proc. IEEE Security and Privacy Workshops (SPW), 2021, pp. 7-12.",
@@ -485,7 +485,7 @@ REFS = [
     "I. Mironov, “Rényi differential privacy,” in Proc. IEEE 30th Computer Security Foundations Symposium (CSF), 2017, pp. 263-275.",
     "S. M. Lundberg and S.-I. Lee, “A unified approach to interpreting model predictions,” in Advances in Neural Information Processing Systems 30 (NeurIPS), 2017.",
     "M. T. Ribeiro, S. Singh, and C. Guestrin, “‘Why should I trust you?’ Explaining the predictions of any classifier,” in Proc. 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining, 2016, pp. 1135-1144.",
-    "J. Platt, “Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods,” in Advances in Large Margin Classifiers, MIT Press, 1999, pp. 61-74.",
+    "J. Platt, “Probabilistic outputs for support vector machines and comparisons to regularized likelihood methods,” in Advances in Large Margin Classifiers, A. J. Smola et al., Eds. MIT Press, 1999.",
     "A. Niculescu-Mizil and R. Caruana, “Predicting good probabilities with supervised learning,” in Proc. 22nd International Conference on Machine Learning (ICML), 2005, pp. 625-632.",
     "R. Sommer and V. Paxson, “Outside the closed world: On using machine learning for network intrusion detection,” in Proc. IEEE Symposium on Security and Privacy, 2010, pp. 305-316.",
     "D. Arp et al., “Dos and don’ts of machine learning in computer security,” in Proc. 31st USENIX Security Symposium, 2022, pp. 3971-3988.",

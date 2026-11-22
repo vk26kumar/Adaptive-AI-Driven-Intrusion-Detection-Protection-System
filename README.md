@@ -260,7 +260,7 @@ Phase 2 live path, all fixed and unit-tested:
 | 7 | LAN multicast / broadcast judged by the model | mDNS, SSDP, subnet broadcasts were most false positives | unicast scope (CIC-IDS2017 attacks are all unicast); `IDS_INCLUDE_MULTICAST=1` to override |
 
 **Port scan of this machine** (100 ports on loopback): the per-flow model classified 98 probes and
-flagged **0**. The cause is a dataset artifact, not a pipeline bug: 100% of CIC-IDS2017 PortScan flows
+flagged **0**. The cause is a dataset artifact, not a pipeline bug: 99.9% of CIC-IDS2017 PortScan flows
 carry the attacker's TCP window (29200 = Linux/Kali default, or 1024 = nmap SYN scan) and a 6-byte
 Ethernet padding on the RST. A Windows connect() probe over loopback scores 0.009; setting only those
 two fields to the testbed values makes the identical probe score 0.94. A single probe holds no
@@ -278,8 +278,8 @@ raise the validated threshold). Here the local 90th percentile was 6.7× the dat
 | Live benign run | Packets classified | Flagged | Flows flagged |
 |---|---|---|---|
 | First run (Phase 2 code, during a 7 GB download) | 1,875 | 1,400 (74.7%) | 2 of 4 seen |
-| Defects 1–7 fixed, no baseline | 930 | 64 (6.9%) | 20 of 72 |
-| + local baseline (separate 90 s capture) | 1,359 | **15 (1.1%)** | 5 of 69 |
+| Defects 1–7 fixed, no baseline | 1,301 | 154 (11.8%) | 20 of 37 |
+| + local baseline (90 s capture directly afterwards) | 1,284 | **11 (0.9%)** | 2 of 36 |
 
 Per-packet latency (feature extraction + both models) median 13–17 ms. The remaining flagged flows
 were this host's own outbound HTTPS; the prevention engine never blocks a private source, so they

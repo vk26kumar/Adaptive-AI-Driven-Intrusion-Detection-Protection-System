@@ -1,0 +1,58 @@
+{
+  "scenario": "benign",
+  "interface": "default",
+  "duration_s": 93.7,
+  "packets": 1359,
+  "packets_attack": 15,
+  "flows": 69,
+  "flows_flagged": 5,
+  "latency_ms_median": 16.9,
+  "latency_ms_p95": 63.93,
+  "flagged_flows": [
+    {
+      "src": "172.20.1.53",
+      "dst": "160.79.104.10",
+      "dst_port": 443,
+      "proto": "TCP",
+      "packets": 149,
+      "attack_packets": 6,
+      "max_score": 1.0
+    },
+    {
+      "src": "172.20.1.53",
+      "dst": "151.101.64.223",
+      "dst_port": 443,
+      "proto": "TCP",
+      "packets": 125,
+      "attack_packets": 3,
+      "max_score": 1.0
+    },
+    {
+      "src": "172.20.1.53",
+      "dst": "192.178.158.188",
+      "dst_port": 5228,
+      "proto": "TCP",
+      "packets": 9,
+      "attack_packets": 1,
+      "max_score": 0.5399
+    },
+    {
+      "src": "172.20.1.53",
+      "dst": "192.178.158.83",
+      "dst_port": 443,
+      "proto": "TCP",
+      "packets": 10,
+      "attack_packets": 4,
+      "max_score": 1.0
+    },
+    {
+      "src": "172.20.1.53",
+      "dst": "192.178.158.18",
+      "dst_port": 443,
+      "proto": "TCP",
+      "packets": 21,
+      "attack_packets": 1,
+      "max_score": 1.0
+    }
+  ]
+}

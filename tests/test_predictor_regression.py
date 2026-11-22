@@ -35,7 +35,14 @@ def sample():
     scaler = joblib.load(os.path.join(ROOT, "federated", "data", "scaler.pkl"))
     cols = list(joblib.load(os.path.join(ROOT, "federated", "data", "selected_columns.pkl")))
     import pandas as pd
-    X_raw = scaler.inverse_transform(d["X"][idx])            # predictor scales itself
+    # Exact raw flows (the predictor scales itself).  Inverting the float32-scaled
+    # test.npz instead shifts Fwd Header Length by up to ~900 bytes, so the test
+    # would measure slightly corrupted flows rather than real ones.
+    raw_path = os.path.join(ROOT, "federated", "data", "test_raw.npz")
+    if not os.path.exists(raw_path):
+        pytest.skip("federated/data/test_raw.npz missing; run python -m federated.prepare_data --test-raw-only")
+    X_raw = np.load(raw_path)["X"][idx]
+    assert len(np.load(raw_path)["X"]) == len(d["y"]), "test_raw.npz is out of sync with test.npz"
     return pd.DataFrame(X_raw, columns=cols), d["y"][idx], d["family"][idx]
 
 

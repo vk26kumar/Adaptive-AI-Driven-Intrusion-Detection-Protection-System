@@ -764,9 +764,11 @@
     }
   ],
   "finished": "2026-11-22 09:55:23",
-  "ml_threshold": 0.253769,
   "rounds_completed": 40,
   "final_model_bytes": 3132825,
   "tls": true,
-  "trees_total": 480
+  "trees_total": 480,
+  "ml_threshold_at_training_end": 0.253769,
+  "ml_threshold": 0.161518,
+  "ml_threshold_note": "recalibrated after training with the family-aware rule (python -m federated.calibrate); see hybrid_model/threshold.json"
 }

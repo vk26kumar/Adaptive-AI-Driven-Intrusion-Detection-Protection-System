@@ -23,7 +23,7 @@ os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 
 import numpy as np
 
-from core.decision import best_ml_threshold, decide
+from core.decision import best_ml_threshold, decide, fit_platt
 from federated import config as C
 from federated.data_utils import load_test
 from federated.models import reconstruction_error, anomaly_threshold
@@ -54,6 +54,7 @@ def calibrate(model_dir: str = C.FL_MODEL_DIR, max_fpr: float = 0.01, verbose: b
         best = best_ml_threshold(y, p, max_fpr=max_fpr, family=fam)
         cfg["ml_threshold"] = best["ml_threshold"]
         cfg["ml_calibration"] = best
+        cfg["ml_platt"] = fit_platt(y, p)            # score scale only; decisions unchanged
     else:
         p = None
         cfg["ml_threshold"] = 0.5

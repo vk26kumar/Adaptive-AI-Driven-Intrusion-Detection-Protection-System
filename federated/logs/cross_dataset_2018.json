@@ -1,0 +1,150 @@
+{
+  "dataset": "CSE-CIC-IDS2018 (Processed Traffic Data for ML Algorithms)",
+  "model": "deployed federated hybrid, trained and calibrated on CIC-IDS2017 only (no refit)",
+  "sample": {
+    "flows": 281918,
+    "attacks": 131918,
+    "per_label_cap": 15000,
+    "benign_cap": 150000
+  },
+  "population_flows": 16232943,
+  "hybrid_sample": {
+    "accuracy": 0.5773,
+    "precision": 0.834,
+    "recall": 0.1207,
+    "f1": 0.2109,
+    "fpr": 0.0211,
+    "tp": 15928,
+    "fp": 3171,
+    "fn": 115990,
+    "tn": 146829
+  },
+  "hybrid_population_weighted": {
+    "accuracy": 0.8203,
+    "precision": 0.2899,
+    "recall": 0.0423,
+    "f1": 0.0739,
+    "fpr": 0.0211
+  },
+  "xgboost_only_population_weighted": {
+    "accuracy": 0.8344,
+    "precision": 0.6801,
+    "recall": 0.0408,
+    "f1": 0.077,
+    "fpr": 0.0039
+  },
+  "autoencoder_only_population_weighted": {
+    "accuracy": 0.8168,
+    "precision": 0.039,
+    "recall": 0.0035,
+    "f1": 0.0064,
+    "fpr": 0.0174
+  },
+  "per_label": {
+    "BENIGN": {
+      "family": "BENIGN",
+      "population": 13484708,
+      "sampled": 150000,
+      "false_positive_rate": 0.0211,
+      "xgboost_only": 0.0039,
+      "autoencoder_only": 0.0174
+    },
+    "Bot": {
+      "family": "Bot",
+      "population": 286191,
+      "sampled": 15000,
+      "detection_rate": 0.0007,
+      "xgboost_only": 0.0001,
+      "autoencoder_only": 0.0007
+    },
+    "DDoS": {
+      "family": "DDoS",
+      "population": 1263933,
+      "sampled": 15000,
+      "detection_rate": 0.0001,
+      "xgboost_only": 0.0001,
+      "autoencoder_only": 0.0001
+    },
+    "DoS GoldenEye": {
+      "family": "DoS",
+      "population": 41508,
+      "sampled": 15000,
+      "detection_rate": 0.1839,
+      "xgboost_only": 0.1737,
+      "autoencoder_only": 0.0231
+    },
+    "DoS Hulk": {
+      "family": "DoS",
+      "population": 461912,
+      "sampled": 15000,
+      "detection_rate": 0.0217,
+      "xgboost_only": 0.0211,
+      "autoencoder_only": 0.0006
+    },
+    "DoS Slowhttptest": {
+      "family": "DoS",
+      "population": 139890,
+      "sampled": 15000,
+      "detection_rate": 0.0,
+      "xgboost_only": 0.0,
+      "autoencoder_only": 0.0
+    },
+    "DoS slowloris": {
+      "family": "DoS",
+      "population": 10990,
+      "sampled": 10990,
+      "detection_rate": 0.4625,
+      "xgboost_only": 0.432,
+      "autoencoder_only": 0.4592
+    },
+    "FTP-Patator": {
+      "family": "BruteForce",
+      "population": 193360,
+      "sampled": 15000,
+      "detection_rate": 0.0,
+      "xgboost_only": 0.0,
+      "autoencoder_only": 0.0
+    },
+    "Infiltration": {
+      "family": "Other",
+      "population": 161934,
+      "sampled": 15000,
+      "detection_rate": 0.0197,
+      "xgboost_only": 0.003,
+      "autoencoder_only": 0.0168
+    },
+    "SSH-Patator": {
+      "family": "BruteForce",
+      "population": 187589,
+      "sampled": 15000,
+      "detection_rate": 0.4793,
+      "xgboost_only": 0.4793,
+      "autoencoder_only": 0.0
+    },
+    "Web Attack Brute Force": {
+      "family": "WebAttack",
+      "population": 611,
+      "sampled": 611,
+      "detection_rate": 0.2422,
+      "xgboost_only": 0.0016,
+      "autoencoder_only": 0.2406
+    },
+    "Web Attack Sql Injection": {
+      "family": "WebAttack",
+      "population": 87,
+      "sampled": 87,
+      "detection_rate": 0.023,
+      "xgboost_only": 0.023,
+      "autoencoder_only": 0.0
+    },
+    "Web Attack XSS": {
+      "family": "WebAttack",
+      "population": 230,
+      "sampled": 230,
+      "detection_rate": 0.4957,
+      "xgboost_only": 0.0043,
+      "autoencoder_only": 0.4913
+    }
+  },
+  "seconds": 963.7
+}

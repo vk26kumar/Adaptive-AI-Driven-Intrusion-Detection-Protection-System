@@ -10,9 +10,9 @@
       "rounds": 15,
       "epsilon": Infinity,
       "delta": 1e-05,
-      "benign_mse": 2.8099380870116875e-05,
-      "ae_recall": 0.28160388777806666,
-      "ae_fpr": 0.00665390875896353
+      "benign_mse": 2.820705594785977e-05,
+      "ae_recall": 0.34897113435352795,
+      "ae_fpr": 0.00612757496711872
     },
     {
       "setting": "noise 0.01, clip 1.0, 40 rounds",

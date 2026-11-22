@@ -149,7 +149,8 @@ def main():
             log = read_log(run)
             if log:
                 comm[run] = {
-                    "rounds": len(log["rounds"]),
+                    # logs may hold a round-0 baseline evaluation; count training rounds only
+                    "rounds": log.get("rounds_completed") or sum(1 for r in log["rounds"] if r.get("round", 1) > 0),
                     "bytes_total": log.get("bytes_total") or sum(
                         r.get("bytes_down_total", 0) + r.get("bytes_up_total", 0) for r in log["rounds"]),
                     "final_model_bytes": log.get("final_model_bytes"),

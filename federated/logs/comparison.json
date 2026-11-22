@@ -114,14 +114,14 @@
     },
     "communication": {
       "ae": {
-        "rounds": 16,
+        "rounds": 15,
         "bytes_total": 13995840,
         "final_model_bytes": null,
         "dp": false,
         "tls": true
       },
       "ae_dp": {
-        "rounds": 41,
+        "rounds": 40,
         "bytes_total": 37322240,
         "final_model_bytes": null,
         "dp": true,

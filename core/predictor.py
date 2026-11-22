@@ -25,7 +25,7 @@ import pandas as pd
 import xgboost as xgb
 from tensorflow.keras.models import load_model
 
-from core.decision import decide, load_thresholds, confidence
+from core.decision import decide, load_thresholds, confidence, calibrated_prob
 
 _BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODEL_DIR = os.environ.get("IDS_MODEL_DIR", os.path.join(_BASE, "hybrid_model"))
@@ -95,22 +95,25 @@ def _mse(X: np.ndarray) -> np.ndarray:
 
 
 # -- Public API -----------------------------------------------------------------
-def predict_batch(rows) -> pd.DataFrame:
-    """Vectorised prediction. Returns columns mse, dl_score, ml_prob, final_score, label."""
+def predict_batch(rows, thresholds: dict | None = None) -> pd.DataFrame:
+    """Vectorised prediction. Returns columns mse, dl_score, ml_prob (Platt-calibrated
+    XGBoost P(attack)), ml_prob_raw (booster output), final_score, label.
+    thresholds overrides THRESHOLDS (the live sniffer passes its local baseline)."""
+    cfg = thresholds or THRESHOLDS
     X = _scale(_to_frame(rows))
     mse = _mse(X)
     ml = _ml_prob(X)
-    dl, fin, is_attack = decide(mse, ml, THRESHOLDS)
+    dl, fin, is_attack = decide(mse, ml, cfg)
     return pd.DataFrame({
-        "mse": mse, "dl_score": dl, "ml_prob": ml, "final_score": fin,
-        "label": np.where(is_attack, "ATTACK", "NORMAL"),
+        "mse": mse, "dl_score": dl, "ml_prob": calibrated_prob(ml, cfg), "ml_prob_raw": ml,
+        "final_score": fin, "label": np.where(is_attack, "ATTACK", "NORMAL"),
     })
 
 
-def predict_features(feature_dict: dict) -> dict:
+def predict_features(feature_dict: dict, thresholds: dict | None = None) -> dict:
     """Single-flow prediction used by the sniffer and the simulator."""
     t0 = time.perf_counter()
-    out = predict_batch([feature_dict]).iloc[0]
+    out = predict_batch([feature_dict], thresholds).iloc[0]
     is_attack = out["label"] == "ATTACK"
     return {
         "label":       str(out["label"]),

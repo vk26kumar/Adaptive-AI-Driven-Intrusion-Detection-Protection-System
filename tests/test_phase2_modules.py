@@ -110,3 +110,65 @@ def test_family_aware_calibration_keeps_rare_families():
     assert rare_recall(plain["ml_threshold"]) < 0.6            # F1 gives the rare family up
     assert rare_recall(aware["ml_threshold"]) > 0.9            # family-aware keeps it
     assert aware["fpr"] <= 0.10
+
+
+def test_platt_scaling_keeps_every_decision():
+    """Platt scaling must only rescale scores: identical ATTACK/NORMAL decisions,
+    cutoff mapped consistently, and a monotone (non-inverting) fit."""
+    import numpy as np
+    from core.decision import decide, fit_platt, platt
+    rng = np.random.default_rng(1)
+    p = np.r_[rng.beta(1, 30, 5000), rng.beta(3, 8, 1000)]          # low raw probs, attacks slightly higher
+    y = np.r_[np.zeros(5000), np.ones(1000)]
+    pl = fit_platt(y, p)
+    assert pl["a"] > 0
+    mse = rng.uniform(0, 2e-4, len(p))
+    base = {"ae_threshold": 1e-4, "anomaly_multiplier": 10.0, "ml_threshold": 0.15, "decision_threshold": 0.5}
+    _, f0, d0 = decide(mse, p, base)
+    _, f1, d1 = decide(mse, p, {**base, "ml_platt": pl})
+    assert np.array_equal(d0, d1)
+    assert np.all(np.diff(platt(np.sort(p), pl["a"], pl["b"])) >= 0)
+
+
+def test_scan_detector_flags_vertical_scan_not_browsing():
+    from core.scan_detector import ScanDetector
+    d = ScanDetector(window_s=10, min_ports=20, alert_every=20)
+    alerts = [d.observe("10.0.0.9", "10.0.0.5", p, 100 + p * 0.01) for p in range(1, 61)]
+    fired = [a for a in alerts if a]
+    assert len(fired) == 3 and fired[0]["distinct_ports"] == 20          # at 20, 40, 60 ports
+    # a browser: many hosts on 443, and repeated connections to one host on few ports
+    b = ScanDetector(window_s=10, min_ports=20)
+    assert not any(b.observe("10.0.0.5", f"93.184.0.{i}", 443, 200 + i * 0.05) for i in range(100))
+    assert not any(b.observe("10.0.0.5", "93.184.1.1", 443 if i % 2 else 80, 300 + i * 0.05) for i in range(100))
+    # slow probing spread beyond the window is not a burst
+    s = ScanDetector(window_s=10, min_ports=20)
+    assert not any(s.observe("10.0.0.9", "10.0.0.6", p, 400 + p * 1.0) for p in range(1, 40))
+
+
+def test_live_result_names_the_flow_client_not_the_packet_sender():
+    """A probe becomes classifiable on the victim's RST; the result must still
+    name the scanner as source (prevention would otherwise target the victim)."""
+    from scapy.all import IP, TCP
+    from network import features as F
+    from network.sniffer import make_packet_handler
+    from queue import Queue
+    F.reset_flow_cache()
+    q = Queue(); h = make_packet_handler(q)
+    syn = IP(src="45.33.32.156", dst="10.0.0.5") / TCP(sport=51516, dport=8082, flags="S"); syn.time = 7000.0
+    rst = IP(src="10.0.0.5", dst="45.33.32.156") / TCP(sport=8082, dport=51516, flags="RA"); rst.time = 7000.0001
+    h(syn); h(rst)
+    r = q.get_nowait()
+    assert r["src_ip"] == "45.33.32.156" and r["dst_ip"] == "10.0.0.5" and r["dst_port"] == 8082
+
+
+def test_live_baseline_can_only_raise_the_threshold(tmp_path, monkeypatch):
+    import json
+    import network.baseline as B
+    base = {"ae_threshold": 5e-5, "anomaly_multiplier": 10.0, "ml_threshold": 0.16, "decision_threshold": 0.5}
+    p = tmp_path / "b.json"
+    monkeypatch.setattr(B, "BASELINE_PATH", str(p))
+    assert B.load_live_thresholds(base) is base                         # no file: unchanged
+    p.write_text(json.dumps({"ae_threshold_live": 2e-4}))
+    assert B.load_live_thresholds(base)["ae_threshold"] == 2e-4         # raised
+    p.write_text(json.dumps({"ae_threshold_live": 1e-6}))
+    assert B.load_live_thresholds(base)["ae_threshold"] == 5e-5         # never lowered

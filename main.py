@@ -34,7 +34,7 @@ def main():
             except Empty:
                 continue
             tag = "ATTACK" if r["label"] == "ATTACK" else "normal"
-            atype = classify_attack_type(r["features"]) if r["label"] == "ATTACK" else None
+            atype = (r.get("attack_type") or classify_attack_type(r["features"])) if r["label"] == "ATTACK" else None
             extra = f" type={atype}" if atype else ""
             store.log_flow(r, source="live", attack_type=atype)
             if atype:

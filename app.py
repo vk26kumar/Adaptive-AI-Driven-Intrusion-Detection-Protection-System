@@ -141,7 +141,7 @@ def _drain_queue(max_items=50):
         _bucket(label)
         atype = None
         if label == "ATTACK":
-            atype = classify_attack_type(feat)
+            atype = res.get("attack_type") or classify_attack_type(feat)
             S["stats"].attack_types[atype] = S["stats"].attack_types.get(atype, 0) + 1
             _push_alert(res.get("src_ip", "?"), res.get("dst_port", "?"), res.get("proto", "?"), fs, atype)
             S["last_explained"] = {"features": feat, "label": label, "who": f"live {res.get('src_ip','?')}:{res.get('dst_port','?')}"}
@@ -271,7 +271,7 @@ sim_col, matrix_col, fed_col = st.columns(3, gap="medium")
 # ------------------------------------------------------------ simulator ------
 with sim_col:
     st.markdown('<div class="section-label">⚡ Attack Simulator</div>', unsafe_allow_html=True)
-    st.caption("Profiles start from the median real CIC-IDS2017 flow of that family. Override knobs to probe the model.")
+    st.caption("Profiles start from a real CIC-IDS2017 flow of that family (the family medoid). Override knobs to probe the model.")
     profile = st.selectbox("Traffic profile", PROFILES, key="sim_profile")
     override = st.checkbox("Override flow knobs", value=False, key="sim_override")
     ka, kb = st.columns(2)
@@ -398,7 +398,8 @@ with fed_col:
         done = "finished" if log.get("finished") else "running"
         flags = " · ".join(x for x in (
             "TLS" if log.get("tls") else "", "DP" if log.get("dp") else "") if x)
-        st.markdown(f'<p class="small" style="margin-top:8px">{name}: {len(r)} rounds ({done}) {flags}</p>',
+        n_rounds = log.get("rounds_completed") or sum(1 for x in r if x.get("round", 1) > 0)   # skip round-0 baseline
+        st.markdown(f'<p class="small" style="margin-top:8px">{name}: {n_rounds} rounds ({done}) {flags}</p>',
                     unsafe_allow_html=True)
         if r:
             chart = pd.DataFrame({"round": [x["round"] for x in r],
@@ -407,6 +408,8 @@ with fed_col:
             st.line_chart(chart, height=120, width="stretch")
             last = r[-1]
             parts = [f"last round: recall {last.get('recall', 0):.3f}", f"FPR {last.get('fpr', 0):.4f}"]
+            if "num_trees" in last:
+                parts[0] += " (raw 0.5 cutoff, before server calibration)"
             mb = (log.get("bytes_total") or 0) / 1e6
             if mb:
                 parts.append(f"traffic {mb:.1f} MB total")

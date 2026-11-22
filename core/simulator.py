@@ -2,9 +2,10 @@
 core/simulator.py
 Attack Simulator: builds a flow feature vector and runs the hybrid model.
 
-Phase 2: instead of inventing values, each traffic profile starts from the
-MEDIAN real flow of that attack family in CIC-IDS2017 (hybrid_model/
-family_prototypes.json, produced by federated.make_prototypes).  The user can
+Instead of inventing values, each traffic profile starts from a REAL flow of
+that attack family in CIC-IDS2017: the family medoid, i.e. the captured flow
+nearest the family median (hybrid_model/family_prototypes.json, produced by
+federated.make_prototypes).  The user can
 then override the visible knobs (port, rate, packet length, duration, packet
 count).  Because the intended family is known, the dashboard's confusion
 matrix can be updated with real ground truth.

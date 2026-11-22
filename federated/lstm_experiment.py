@@ -38,7 +38,7 @@ MAX_WINDOWS_PER_FILE = 25000        # keeps the experiment to a few minutes on C
 
 
 def load_windows(scaler):
-    Xs, ys, fams, split = [], [], [], []
+    Xs, ys, fams, split, raw_test = [], [], [], [], []
     for f in sorted(glob.glob(os.path.join(C.RAW_DATASET_DIR, "*.csv"))):
         header = pd.read_csv(f, nrows=0, encoding_errors="replace").columns
         wanted = {c.strip(): c for c in header}
@@ -52,16 +52,18 @@ def load_windows(scaler):
         fam = lab.map(C.FAMILY_IDS).values.astype(np.int8)
         n = (len(y) // SEQ_LEN) * SEQ_LEN
         X = np.clip(scaler.transform(feats[:n]), 0, 1).astype(np.float32).reshape(-1, SEQ_LEN, len(C.SELECTED_COLUMNS))
+        R = feats[:n].reshape(-1, SEQ_LEN, len(C.SELECTED_COLUMNS))     # exact raw values (float64)
         yw = y[:n].reshape(-1, SEQ_LEN)
         fw = fam[:n].reshape(-1, SEQ_LEN)
         if len(X) > MAX_WINDOWS_PER_FILE:          # keep chronology: evenly spaced windows
             idx = np.linspace(0, len(X) - 1, MAX_WINDOWS_PER_FILE).astype(int)
-            X, yw, fw = X[idx], yw[idx], fw[idx]
+            X, R, yw, fw = X[idx], R[idx], yw[idx], fw[idx]
         cut = int(len(X) * 0.7)
-        Xs.append(X); ys.append(yw); fams.append(fw)
+        Xs.append(X); ys.append(yw); fams.append(fw); raw_test.append(R[cut:])
         split.append(np.r_[np.zeros(cut, dtype=bool), np.ones(len(X) - cut, dtype=bool)])
         print(f"  {os.path.basename(f)[:50]:50s} windows={len(X):>6,} attack-windows={int(yw.max(1).sum()):>6,}")
-    return (np.concatenate(Xs), np.concatenate(ys), np.concatenate(fams), np.concatenate(split))
+    return (np.concatenate(Xs), np.concatenate(ys), np.concatenate(fams), np.concatenate(split),
+            np.concatenate(raw_test))
 
 
 def metrics(y, pred):
@@ -77,7 +79,7 @@ def main():
     from tensorflow.keras import layers, models
     scaler = joblib.load(os.path.join(C.DATA_DIR, "scaler.pkl"))
     print("Building flow windows (chronological)...")
-    X, yw, fw, is_test = load_windows(scaler)
+    X, yw, fw, is_test, raw_te = load_windows(scaler)
     y = yw.max(axis=1)                                    # window label
     Xtr, ytr, Xte, yte = X[~is_test], y[~is_test], X[is_test], y[is_test]
     print(f"train windows={len(ytr):,} ({ytr.mean():.1%} attack)  test windows={len(yte):,} ({yte.mean():.1%} attack)")
@@ -99,8 +101,10 @@ def main():
 
     # Window-level baseline with the deployed federated hybrid model (flow-wise, any-hit)
     from core.predictor import predict_batch
-    flat = Xte.reshape(-1, X.shape[-1])
-    raw = scaler.inverse_transform(flat)
+    # Feed the EXACT raw features.  Inverting the float32-scaled windows instead
+    # (as the Sep 2026 version did) shifts large-range features such as Fwd Header
+    # Length by up to ~900 bytes and understated the hybrid (DoS 99.8% -> 77%).
+    raw = raw_te.reshape(-1, X.shape[-1])
     hyb = predict_batch(pd.DataFrame(raw, columns=C.SELECTED_COLUMNS))
     flow_attack = (hyb["label"].values == "ATTACK").reshape(-1, SEQ_LEN)
     base_m = metrics(yte, flow_attack.any(axis=1))

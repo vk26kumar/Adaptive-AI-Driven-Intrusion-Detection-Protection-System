@@ -3,45 +3,45 @@
   "epochs": 4,
   "train_windows": 128598,
   "test_windows": 55115,
-  "train_seconds": 12.5,
+  "train_seconds": 27.7,
   "lstm_window_level": {
-    "accuracy": 0.8891,
-    "precision": 0.7896,
-    "recall": 0.6269,
-    "f1": 0.6989,
-    "fpr": 0.0431
+    "accuracy": 0.885,
+    "precision": 0.7671,
+    "recall": 0.6316,
+    "f1": 0.6928,
+    "fpr": 0.0495
   },
   "hybrid_anyflow_window_level": {
-    "accuracy": 0.9593,
-    "precision": 0.8392,
-    "recall": 0.9916,
-    "f1": 0.909,
-    "fpr": 0.0491
+    "accuracy": 0.9651,
+    "precision": 0.8553,
+    "recall": 0.9993,
+    "f1": 0.9217,
+    "fpr": 0.0437
   },
   "per_family": {
     "DDoS": {
       "windows": 2690,
-      "lstm_recall": 0.9937,
+      "lstm_recall": 0.9944,
       "hybrid_anyflow_recall": 1.0
     },
     "DoS": {
       "windows": 2668,
-      "lstm_recall": 0.0034,
-      "hybrid_anyflow_recall": 0.9674
+      "lstm_recall": 0.0094,
+      "hybrid_anyflow_recall": 0.9981
     },
     "PortScan": {
       "windows": 4461,
-      "lstm_recall": 0.9686,
-      "hybrid_anyflow_recall": 0.9984
+      "lstm_recall": 0.9695,
+      "hybrid_anyflow_recall": 0.9996
     },
     "BruteForce": {
       "windows": 1186,
-      "lstm_recall": 0.0135,
+      "lstm_recall": 0.0363,
       "hybrid_anyflow_recall": 1.0
     },
     "Bot": {
       "windows": 301,
-      "lstm_recall": 0.2392,
+      "lstm_recall": 0.2558,
       "hybrid_anyflow_recall": 0.9967
     }
   },

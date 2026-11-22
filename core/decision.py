@@ -47,6 +47,8 @@ def load_thresholds(path: str) -> dict:
             raw = json.load(f)
         if "ae_threshold" in raw:
             cfg.update({k: raw[k] for k in DEFAULTS if k in raw})
+            if "ml_platt" in raw:
+                cfg["ml_platt"] = raw["ml_platt"]
         elif "threshold" in raw and raw["threshold"] < 0.01:
             # Legacy file that actually holds the reconstruction threshold
             cfg["ae_threshold"] = float(raw["threshold"])
@@ -72,10 +74,45 @@ def final_score(dl, ml):
     return np.maximum(np.asarray(dl, dtype=float), np.asarray(ml, dtype=float))
 
 
+def _logit(p):
+    p = np.clip(np.asarray(p, dtype=float), 1e-7, 1 - 1e-7)
+    return np.log(p / (1 - p))
+
+
+def platt(ml_prob, a: float, b: float):
+    """Platt scaling: calibrated P(attack) = sigmoid(a * logit(p) + b), a > 0."""
+    return 1.0 / (1.0 + np.exp(-(a * _logit(ml_prob) + b)))
+
+
+def fit_platt(y_true, ml_prob) -> dict:
+    """Fit Platt scaling on a labelled calibration set; returns {'a', 'b'}.
+    Federated bagging ranks flows almost perfectly but leaves raw probabilities
+    far too low (node 3's benign-only trees pull every probability down), so a
+    clear port scan gets P = 0.26.  The decision cutoff copes with that, but the
+    score is then not a probability: margins look thin and the prevention
+    engine's 0.75 rule almost never fires.  Platt scaling is monotone, so every
+    ATTACK/NORMAL decision is unchanged; only the scores become calibrated."""
+    from sklearn.linear_model import LogisticRegression
+    lr = LogisticRegression(C=1e6).fit(_logit(ml_prob)[:, None], np.asarray(y_true).astype(int))
+    a, b = float(lr.coef_[0, 0]), float(lr.intercept_[0])
+    if a <= 0:                                   # would invert the ranking: refuse
+        return {"a": 1.0, "b": 0.0}
+    return {"a": a, "b": b}
+
+
+def calibrated_prob(ml_prob, cfg: dict):
+    """XGBoost P(attack) after the Platt scaling in cfg (identity if none)."""
+    pl = cfg.get("ml_platt")
+    return platt(ml_prob, pl["a"], pl["b"]) if pl else np.clip(np.asarray(ml_prob, dtype=float), 0.0, 1.0)
+
+
 def decide(mse, ml_prob, cfg: dict):
-    """Vectorised decision. Returns (dl, final, is_attack)."""
+    """Vectorised decision. Returns (dl, final, is_attack).
+    ml_prob is the RAW booster probability; if cfg carries Platt parameters both
+    the probability and the cutoff are mapped through it (monotone, so the
+    decision is identical and only the score scale changes)."""
     dl = dl_score(mse, cfg["ae_threshold"], cfg["anomaly_multiplier"])
-    ml = ml_score(ml_prob, cfg.get("ml_threshold", 0.5))
+    ml = ml_score(calibrated_prob(ml_prob, cfg), float(calibrated_prob(cfg.get("ml_threshold", 0.5), cfg)))
     fin = final_score(dl, ml)
     return dl, fin, fin > cfg["decision_threshold"]
 

@@ -1,0 +1,11 @@
+{
+  "created": "2026-11-22 11:28:23",
+  "minutes": 4,
+  "snapshots": 3337,
+  "excluded_suspicious": 0,
+  "local_mse_p90": 0.0003379152447450906,
+  "dataset_ae_threshold": 5.070675251772627e-05,
+  "ae_threshold_live": 0.0003379152447450906,
+  "local_snapshots_over_dataset_rule": 0.0503,
+  "local_snapshots_over_live_rule": 0.0099
+}

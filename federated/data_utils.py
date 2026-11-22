@@ -44,6 +44,18 @@ def load_test(split: str | None = None):
     return X[sl], y[sl], fam[sl]
 
 
+def load_test_raw(split: str | None = None):
+    """Exact unscaled float64 features of the hold-out (same rows/order as load_test),
+    or None if test_raw.npz has not been written (python -m federated.prepare_data --test-raw-only)."""
+    path = os.path.join(DATA_DIR, "test_raw.npz")
+    if not os.path.exists(path):
+        return None
+    X = np.load(path)["X"]
+    if split is None:
+        return X
+    return X[0::2] if split == "calib" else X[1::2]
+
+
 def load_all_nodes():
     """Pooled training data (used only for the centralized baseline)."""
     parts = [load_node(i) for i in range(NUM_NODES)]

@@ -1,0 +1,39 @@
+{
+  "scenario": "portscan",
+  "interface": "\\Device\\NPF_Loopback",
+  "duration_s": 25.5,
+  "packets": 100,
+  "packets_attack": 2,
+  "flows": 98,
+  "flows_flagged": 2,
+  "latency_ms_median": 17.51,
+  "latency_ms_p95": 47.11,
+  "flagged_flows": [
+    {
+      "src": "127.0.0.1",
+      "dst": "127.0.0.1",
+      "dst_port": 20,
+      "proto": "TCP",
+      "packets": 2,
+      "attack_packets": 1,
+      "max_score": 1.0
+    },
+    {
+      "src": "127.0.0.1",
+      "dst": "127.0.0.1",
+      "dst_port": 40,
+      "proto": "TCP",
+      "packets": 2,
+      "attack_packets": 1,
+      "max_score": 1.0
+    }
+  ],
+  "ports_scanned": 100,
+  "probe_flows_classified_by_model": 98,
+  "probe_flows_flagged_by_model": 0,
+  "behaviour_alerts": [
+    "behaviour: 20 distinct ports of 127.0.0.1 in 10 s (ports 1-20)",
+    "behaviour: 40 distinct ports of 127.0.0.1 in 10 s (ports 1-40)"
+  ],
+  "scan_detected": true
+}

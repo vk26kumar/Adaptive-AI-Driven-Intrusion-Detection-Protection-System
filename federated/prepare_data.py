@@ -15,7 +15,9 @@ Steps
 
 Outputs (federated/data/)
   scaler.pkl, selected_columns.pkl, class_map.json,
-  node_0.npz .. node_3.npz, test.npz, summary.json
+  node_0.npz .. node_3.npz, test.npz, test_raw.npz, summary.json
+
+    python -m federated.prepare_data --test-raw-only   # only (re)write test_raw.npz
 """
 import glob
 import json
@@ -155,6 +157,31 @@ def save_npz(path: str, df: pd.DataFrame, scaler: MinMaxScaler) -> None:
     )
 
 
+def save_test_raw(test_df: pd.DataFrame) -> None:
+    """Exact (float64, unscaled) features of the hold-out, same row order as test.npz.
+    test.npz holds float32 scaled values; inverting them shifts large-range
+    features (Fwd Header Length spans ~1e9) by hundreds of bytes, so tests and
+    simulator prototypes that need real flows read this file instead."""
+    np.savez_compressed(os.path.join(DATA_DIR, "test_raw.npz"),
+                        X=test_df[SELECTED_COLUMNS].values.astype(np.float64))
+
+
+def rebuild_test_raw() -> None:
+    """Write test_raw.npz for an existing preparation without touching the
+    partitions: the split is deterministic (RANDOM_SEED), so it is rebuilt and
+    verified row-for-row against test.npz first."""
+    df = clean(load_all(RAW_DATASET_DIR))
+    _, test_df = train_test_split(df, test_size=TEST_FRACTION, stratify=df["family_id"],
+                                  random_state=RANDOM_SEED)
+    scaler = joblib.load(os.path.join(DATA_DIR, "scaler.pkl"))
+    X = np.load(os.path.join(DATA_DIR, "test.npz"))["X"]
+    raw = test_df[SELECTED_COLUMNS].values.astype(np.float64)
+    if raw.shape != X.shape or not np.allclose(scaler.transform(raw).astype(np.float32), X, atol=1e-6):
+        sys.exit("Rebuilt hold-out does not match test.npz; rerun the full preparation.")
+    save_test_raw(test_df)
+    print(f"test_raw.npz written ({len(raw):,} rows, verified against test.npz)")
+
+
 def main() -> None:
     os.makedirs(DATA_DIR, exist_ok=True)
     rng = np.random.default_rng(RANDOM_SEED)
@@ -174,6 +201,7 @@ def main() -> None:
         df, test_size=TEST_FRACTION, stratify=df["family_id"], random_state=RANDOM_SEED
     )
     save_npz(os.path.join(DATA_DIR, "test.npz"), test_df, scaler)
+    save_test_raw(test_df)
     print(f"\nGlobal test set: {len(test_df):,} rows "
           f"({int(test_df['is_attack'].sum()):,} attacks)")
 
@@ -203,4 +231,7 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    if "--test-raw-only" in sys.argv:
+        rebuild_test_raw()
+    else:
+        main()

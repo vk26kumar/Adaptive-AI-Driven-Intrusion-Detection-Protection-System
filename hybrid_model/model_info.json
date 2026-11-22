@@ -1,6 +1,6 @@
 {
   "source": "federated (Flower) global model",
-  "exported": "2026-11-22 10:25:47",
+  "exported": "2026-11-22 10:59:01",
   "nodes": 4,
   "node_attack_families": {
     "0": [
@@ -54,14 +54,14 @@
     },
     "communication": {
       "ae": {
-        "rounds": 16,
+        "rounds": 15,
         "bytes_total": 13995840,
         "final_model_bytes": null,
         "dp": false,
         "tls": true
       },
       "ae_dp": {
-        "rounds": 41,
+        "rounds": 40,
         "bytes_total": 37322240,
         "final_model_bytes": null,
         "dp": true,

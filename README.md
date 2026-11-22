@@ -9,7 +9,31 @@ live Streamlit dashboard with per-prediction explainability.
 | Phase | Status | What it delivers |
 |---|---|---|
 | Phase 1 (Jan–Apr 2026) | done | Autoencoder + XGBoost trained centrally on the CIC-IDS2017 DDoS day, Scapy sniffer, Streamlit dashboard, attack simulator |
-| Phase 2 (Sep 2026 →) | in progress | Federated training over 4 non-IID nodes with TLS, multi-attack data (all 8 CIC-IDS2017 days), calibrated hybrid rule, differential privacy option, centralized-vs-federated evaluation, honest dashboard metrics |
+| Phase 2 (Sep 2026) | done | Federated training over 4 non-IID nodes with TLS, multi-attack data (all 8 CIC-IDS2017 days), calibrated hybrid rule, differential privacy option, centralized-vs-federated evaluation, honest dashboard metrics |
+| Final (Nov 2026) | in progress | Full retrain from scratch, family-aware calibration, real-flow simulator profiles, 18 passing tests; final report |
+
+---
+
+## Latest update (Nov 2026)
+
+* **Full retrain from scratch.** Data preparation, federated training over TLS (Autoencoder 15
+  rounds, XGBoost 40 rounds), evaluation and export were rerun on all 8 CIC-IDS2017 days. The data
+  reproduces the published partitions row for row, and the Phase 1 model reproduces its published
+  numbers exactly (88.92% accuracy, 51.75% recall). The federated hybrid now reaches **99.28%
+  accuracy, 99.94% recall, 0.88% FPR**, up from 99.23% / 99.95% / 0.95%.
+* **Family-aware calibration** (`core/decision.best_ml_threshold`). The old best-F1 cutoff rule ignores
+  rare attack families. In the retrain it would have cut Bot recall to 67% and WebAttack to 62% for a
+  0.0002 F1 gain. The cutoff is now the best F1 among cutoffs within 1 point of the best average
+  per-family recall. Both the federated and the centralized model use this rule.
+* **Corrected finding.** Phase 2 reported that federated training beat centralized training on Bot
+  and WebAttack (97.5% vs 66.8%, 99.5% vs 60.0%). That gap came from the calibration flaw. With the
+  same rule applied to both, the two are essentially tied (centralized 99.31% / 100% / 0.86%).
+* **Simulator profiles are real flows.** Each profile is now the family *medoid*: the real captured
+  flow nearest the family median. The per-feature median, which the dashboard used before, is not a
+  real flow, and for Bot it landed in benign territory, so the Bot button showed NORMAL. All 7
+  profiles now get their true verdict.
+* **Tests:** 18 (was 16), all passing, including the replay of 20,000 real flows. The two new tests
+  cover the calibration rule and every simulator profile.
 
 ---
 
@@ -81,7 +105,6 @@ federated/                  Phase 2
   lstm_experiment.py        temporal-model experiment
 hybrid_model/               model the dashboard uses (federated export; Phase 1 backup kept aside)
 tests/                      pytest: decision rule, extractor units, dataset replay, prevention, DP, LIME
-docs/                       Phase 2 report, task forms, viva Q&A, presentation outline
 ```
 
 ---
@@ -93,7 +116,17 @@ pip install -r requirements.txt
 # Windows: install Npcap (https://npcap.com) for live capture and run the dashboard as Administrator
 ```
 
-Place the CIC-IDS2017 `MachineLearningCVE` CSVs next to the repo (or set `CICIDS2017_DIR`).
+Tested with Python 3.12. On Windows, if the repo sits in a long path, TensorFlow fails to install
+inside a project-local venv because of the 260-character path limit. Create the venv in a short
+path (e.g. `C:\Users\<you>\aidaps-venv`) or enable Windows long paths.
+
+Place the eight CIC-IDS2017 `MachineLearningCVE` CSVs in a `MachineLearningCVE/` folder next to
+the repo (or set `CICIDS2017_DIR`). The UNB download now goes through a registration form; the same
+eight files are also mirrored on Hugging Face. `prepare_data` should report 2,830,743 flows.
+
+To include the Phase 1 row in `federated.evaluate`, restore the Phase 1 artifacts once:
+`git show 7939f0d:hybrid_model/<file>` for `autoencoder.keras`, `xgb_model.pkl`, `scaler.pkl`,
+`selected_columns.pkl` and `threshold.json` into `hybrid_model_phase1_backup/`.
 
 ## Phase 2 workflow
 
@@ -102,7 +135,9 @@ python -m federated.prepare_data            # 2.83M flows → node_0..3.npz + te
 python -m federated.gen_certs               # TLS certificates (once)
 python -m federated.run_federated --tls     # Autoencoder (FedAvg, 15 rounds) then XGBoost (bagging, 40 rounds)
 python -m federated.evaluate                # centralized baseline + comparison table
+python -m federated.make_prototypes         # simulator profiles (family medoids)
 python -m federated.export_global_model     # dashboard now uses the federated model
+python -m federated.comm_analysis           # traffic and convergence summary
 python -m pytest tests -q                   # 18 tests incl. dataset replay regression
 streamlit run app.py
 ```
@@ -138,7 +173,7 @@ this ~20x). Centralized training would instead upload 274 MB of raw flows.
 
 An LSTM over 10-flow chronological windows reaches 88.9% accuracy / 62.7% recall (window level)
 against 95.9% / 99.2% for the flow-level hybrid under the same chronological split. Negative result,
-documented in `docs/Phase2_Report.md` section 7.5; not used in production.
+kept as a documented experiment (`federated/logs/lstm_experiment.json`); not used in production.
 
 ### Protection, explainability, persistence
 

@@ -234,9 +234,6 @@ for t in ("DEPARTMENT OF COMPUTER SCIENCE AND ENGINEERING", "Madan Mohan Malaviy
 page_break()
 
 # ---------------------------------------------------------------- copyright --
-cp = para(spacing=1.5)
-for _ in range(22):
-    cp.add_run().add_break()
 para("© M. M. M. University of Technology, Gorakhpur (U.P.) – 273010, INDIA", align=WD_ALIGN_PARAGRAPH.CENTER,
      bold=True, after=0)
 para("ALL RIGHTS RESERVED", align=WD_ALIGN_PARAGRAPH.CENTER, bold=True)

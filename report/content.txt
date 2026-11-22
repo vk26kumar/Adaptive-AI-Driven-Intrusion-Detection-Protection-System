@@ -1,0 +1,494 @@
+#CH 1|Introduction
+
+## 1.1 General
+Every organisation that is connected to the Internet is exposed to network attacks. Denial-of-service floods, port scans, password guessing and attacks on web applications happen every day, and many of them are automated. An intrusion detection system (IDS) watches network traffic and raises an alert when it sees something that looks like an attack. An intrusion prevention system goes one step further and blocks the source of the attack.
+
+Traditional IDS products such as Snort work with hand-written signatures. They are precise for attacks that are already known, but every new attack needs a new rule. Machine learning offers a different approach: a model learns what normal and malicious traffic look like from labelled examples and can then judge traffic it has never seen before. The difficulty is that such models need a large amount of labelled traffic, and collecting the network traffic of many organisations in one place is itself a privacy and legal problem. Packet captures contain IP addresses, the services people use and the times they are active.
+
+Federated learning removes the need to collect the data centrally. Each participating organisation (a "node") trains the model on its own traffic and sends only the model parameters to a coordinating server. The server combines the updates into one global model and sends it back. The raw traffic never leaves the node.
+
+This project, the Adaptive AI-Driven Intrusion Detection and Protection System using Federated Learning (A-IDAPS-FL), builds a complete system on this idea. It combines an anomaly detector (an autoencoder) with a supervised classifier (XGBoost), trains both with federated learning across four simulated network nodes, explains each decision, blocks confirmed attackers at the host firewall, and runs on live traffic through a dashboard.
+
+## 1.2 Background
+The project uses the CIC-IDS2017 dataset of the Canadian Institute for Cybersecurity [5], [21]. It contains five days of traffic from a test network in which benign user activity was generated alongside common attacks. Every connection was converted into a "flow" record with about 80 statistical features (packet counts, sizes, timings, TCP window values and so on) by the CICFlowMeter tool. A flow is the set of packets exchanged between two endpoints over one connection, so the IDS judges connections rather than single packets.
+
+The project was carried out in three stages over three semesters. Phase 1 built a centralised hybrid model trained on the DDoS day only. Phase 2 made the training federated, extended it to all eight capture days and added prevention, explanations and logging. The final phase, described in this report as a whole, retrained the system from scratch, corrected errors found by testing, validated the system on live traffic and on a second dataset, and verified the prevention engine on the real Windows firewall.
+
+TAB|Table 1.1: Phases of the project
+| Phase | Period | Main deliverables |
+| Phase 1 | Jan-Apr 2026 | Autoencoder + XGBoost hybrid trained centrally on the CIC-IDS2017 DDoS day; Scapy packet sniffer; Streamlit dashboard; attack simulator |
+| Phase 2 | Jul-Sep 2026 | Federated training (Flower) over four non-IID nodes with TLS; all eight capture days; calibrated decision rule; differential privacy option; prevention engine; SHAP and LIME explanations; event logging; 16 tests |
+| Final | Oct-Nov 2026 | Full retrain; family-aware and Platt calibration; seven live-capture defects fixed; behavioural port-scan detector; local live baseline; firewall test; CSE-CIC-IDS2018 cross-dataset test; 29 tests |
+
+## 1.3 Organisation of the Report
+Chapter 2 reviews related work and states the objectives. Chapter 3 defines the problem and lists the weaknesses of the earlier phases that this work had to correct. Chapter 4 describes the data. Chapter 5 presents the design of the system and Chapter 6 its main algorithms. Chapter 7 covers the technology, implementation, setup and testing. Chapter 8 reports all results, including the negative ones. Chapter 9 shows the dashboard and its outputs, and Chapter 10 concludes with the limitations and future scope.
+
+#CH 2|Literature Review
+
+## 2.1 Literature Survey
+Denning (1987) proposed the first general model of an intrusion detection system, in which the system builds statistical profiles of normal behaviour and reports activity that deviates from them [1]. Almost every anomaly-based IDS since then follows this idea.
+
+Roesch (1999) presented Snort, a lightweight signature-based network IDS that matches packets against a library of rules [2]. Snort and its successors remain the industry standard. Later versions of Snort added a port-scan preprocessor that counts how many ports or hosts one source contacts within a time window; the behavioural scan detector in this project follows the same principle.
+
+Garcia-Teodoro et al. (2009) surveyed anomaly-based network intrusion detection and pointed out its main weakness: a high false-positive rate, because legitimate traffic changes over time and between networks [3]. Buczak and Guven (2016) surveyed data-mining and machine-learning methods for intrusion detection and noted that many published results are obtained on old or synthetic datasets and are hard to compare [4].
+
+Sharafaldin et al. (2018) introduced CIC-IDS2017, generated on a realistic test network with benign background traffic and a set of modern attacks, and described the CICFlowMeter features [5]. Engelen et al. (2021) later examined the dataset in detail and found errors in the CICFlowMeter output and in the labelling, which they corrected [6]. This shows that a high score on the dataset does not automatically transfer to real networks.
+
+Chen and Guestrin (2016) proposed XGBoost, a scalable gradient-boosted decision tree system that is among the strongest models for tabular data [7]. Mirsky et al. (2018) built Kitsune, a network IDS based on an ensemble of autoencoders trained only on normal traffic: an attack is detected because the autoencoder cannot reconstruct it well [8]. This project uses the same reconstruction-error principle.
+
+McMahan et al. (2017) introduced federated learning and the FedAvg algorithm, in which clients train locally and the server averages their weights in proportion to their data size [9]. Beutel et al. (2020) presented Flower, an open-source framework for federated learning that supports many strategies, including bagging of XGBoost trees [10]. Agrawal et al. (2022) reviewed federated learning for intrusion detection and identified non-IID data (each organisation sees different attacks) and communication cost as the main open problems [11].
+
+McMahan et al. (2018) showed how to train federated models with differential privacy by clipping each client update and adding Gaussian noise at the server [12], and Mironov (2017) gave the Renyi differential privacy accountant used to compute the privacy budget [13].
+
+Lundberg and Lee (2017) unified feature-attribution methods under SHAP, with an exact and fast algorithm for tree ensembles [14]. Ribeiro et al. (2016) proposed LIME, which explains any model locally by fitting a simple surrogate around one prediction [15].
+
+Platt (1999) proposed fitting a sigmoid to a classifier's scores to turn them into calibrated probabilities [16], and Niculescu-Mizil and Caruana (2005) showed that boosted trees in particular produce poorly calibrated probabilities that benefit from this correction [17].
+
+Sommer and Paxson (2010) argued that machine learning for intrusion detection often fails outside the laboratory because models learn properties of the test environment instead of the attack [18]. Arp et al. (2022) catalogued such pitfalls in security machine learning, including spurious correlations and lab-only evaluation [19], and Geirhos et al. (2020) described the general phenomenon as shortcut learning [20]. These papers directly explain two of the findings of this project (Sections 8.9 and 8.11).
+
+## 2.2 Outcome of Literature Review
+- Hybrid designs that combine a supervised classifier (for known attacks) with an anomaly detector (for unseen ones) are well motivated [3], [7], [8].
+- Federated learning lets several organisations build one model without sharing traffic, but non-IID data and communication cost must be handled explicitly [9]-[11].
+- Differential privacy needs many clients before it gives a meaningful guarantee at acceptable accuracy [12], [13].
+- Per-prediction explanations are needed for analysts to trust and act on alerts [14], [15].
+- Raw classifier scores should be calibrated before they are used as confidences [16], [17].
+- High accuracy on one dataset must be checked against live traffic and other datasets [6], [18]-[20].
+
+## 2.3 Literature Gap
+Most published IDS work stops at a high accuracy figure on a dataset hold-out. Few student or research systems combine federated training, calibrated decisions, explanations and automatic prevention in one working system, and fewer still test the result on live traffic and on a second, independent dataset. This project aims to do all of these and to report what fails as well as what works.
+
+## 2.4 Objectives
+a) Detect every attack family in CIC-IDS2017 with a hybrid autoencoder and XGBoost model.
+b) Train the model with federated learning so that no raw traffic leaves a node, over an encrypted channel.
+c) Measure the cost of federation: accuracy against a centralised model, communication volume, and the effect of differential privacy.
+d) Explain every alert per flow and log every decision.
+e) Block confirmed attackers automatically at the host firewall, with an allowlist, an audit trail and undo.
+f) Run the system on live traffic and test it on an independent dataset (CSE-CIC-IDS2018).
+
+#CH 3|Problem Statement
+
+## 3.1 Problem Definition
+Design and build an intrusion detection and protection system that (a) is trained collaboratively by several network nodes without sharing raw traffic, (b) detects the attack families of CIC-IDS2017 with high recall and a low false-positive rate, (c) explains each decision, (d) can block an attacking source automatically and reversibly, and (e) is validated beyond its training dataset, on live traffic and on a different dataset.
+
+## 3.2 Weaknesses of the Earlier Phases
+Before extending the system, the earlier code was replayed against the data and against live traffic. Each weakness found was corrected and is covered by an automated test. Table 3.1 lists them because they change how the earlier results must be read.
+
+TAB|Table 3.1: Weaknesses found in the earlier phases and their correction
+| Phase | Weakness | Effect | Correction |
+| 1 | threshold.json held the ensemble cut-off 0.5 instead of the autoencoder threshold | the deployed predictor detected 0% of attacks | threshold file holds the calibrated values |
+| 1 | live extractor used seconds and frame lengths; dataset uses microseconds and payload bytes | live traffic never resembled the training data | extractor rewritten to CICFlowMeter units |
+| 1 | trained on the DDoS day only | 5.3% of port scans and 0.1% of brute-force flows detected | trained on all eight days |
+| 1 | dashboard latency and accuracy partly hard-coded | displayed metrics were not measurements | measured values only |
+| 2 | XGBoost cut-off chosen by best F1 | rare families sacrificed (Bot 67%, WebAttack 62% in the retrain) | family-aware cut-off (Section 5.5) |
+| 2 | simulator profiles were per-feature medians, not real flows | the Bot demonstration was classified NORMAL | real medoid flows |
+| 2 | live path: processing time used as packet time, no inference throttle, no active timeout, wrong orientation of open flows, flows classified only after two forward packets, alert source taken from the triggering packet, multicast judged by the model | port scans invisible live; 75% of benign packets flagged | seven fixes (Section 8.9) |
+| 2 | raw XGBoost probabilities used as scores | thin margins; only 0.5% of port scans reached the blocking score | Platt scaling (Section 5.5) |
+
+## 3.3 Scope
+The system covers unicast TCP and UDP traffic and the attack families present in CIC-IDS2017: DDoS, DoS, port scanning, brute force (FTP and SSH), botnet traffic and web attacks. The federated nodes are simulated as separate processes on one machine, communicating over gRPC with TLS exactly as they would across a network. Live validation covers benign traffic and port scans on the developers' own machine; other live attacks would require an isolated laboratory network and were not attempted.
+
+#CH 4|Dataset and Data Preparation
+
+## 4.1 CIC-IDS2017
+All eight MachineLearningCVE files of CIC-IDS2017 were used. After removing rows with infinite or missing values (none were found), the data contains 2,830,743 flows. The original labels were grouped into attack families as shown in Table 4.1. Infiltration (36 flows) and Heartbleed (11 flows) are far too small to learn; they are kept as attacks under the family "Other".
+
+TAB|Table 4.1: Attack families in CIC-IDS2017
+| Family | Original labels | Flows | Share |
+| BENIGN | BENIGN | 2,273,097 | 80.30% |
+| DoS | Hulk, GoldenEye, slowloris, Slowhttptest | 252,661 | 8.93% |
+| PortScan | PortScan | 158,930 | 5.61% |
+| DDoS | DDoS | 128,027 | 4.52% |
+| BruteForce | FTP-Patator, SSH-Patator | 13,835 | 0.49% |
+| WebAttack | Brute Force, XSS, SQL Injection | 2,180 | 0.08% |
+| Bot | Bot | 1,966 | 0.07% |
+| Other | Infiltration, Heartbleed | 47 | <0.01% |
+| Total | | 2,830,743 | 100% |
+
+FIG|fig_class_distribution.png|Figure 4.1: Number of flows per family (logarithmic scale)|5.6
+
+## 4.2 Features and Scaling
+The 30 features selected in Phase 1 by Random Forest importance are kept so that the results of all phases remain comparable. They describe packet counts and sizes in each direction, inter-arrival times, the TCP header length, the initial TCP window of each side and the destination port. One MinMaxScaler is fitted on all rows and maps every feature to the range 0 to 1, which suits the sigmoid output layer of the autoencoder.
+
+## 4.3 Server Hold-out and its Two Halves
+A stratified 20% of the data (566,149 flows) is kept by the server and never used for training. It is split deterministically into two halves. The even rows form the calibration half (283,075 flows), on which all thresholds are chosen. The odd rows form the report half (283,074 flows, of which 55,741 are attacks), on which every number in Chapter 8 is measured. Nothing tuned on one half is ever evaluated on it. The exact unscaled values of the hold-out are also saved, so that tests and the attack simulator can use real flows rather than values reconstructed from the scaled data.
+
+## 4.4 Non-IID Federated Nodes
+The remaining 2,264,594 flows are distributed over four nodes. Each node represents an organisation that mostly sees one kind of attack, plus a random share of benign traffic (20%, 20%, 20% and 40% of the benign rows). This "non-IID" split is the difficult case for federated learning and is closer to reality than a random split.
+
+TAB|Table 4.2: Data held by each federated node
+| Node | Attack families | Flows | Attack flows | Composition |
+| 0 | DDoS, DoS | 668,245 | 304,550 | benign 363,695; DoS 202,129; DDoS 102,421 |
+| 1 | PortScan, Bot | 492,412 | 128,717 | benign 363,695; PortScan 127,144; Bot 1,573 |
+| 2 | BruteForce, WebAttack | 376,508 | 12,812 | benign 363,696; BruteForce 11,068; WebAttack 1,744 |
+| 3 | almost only benign | 727,429 | 38 | benign 727,391; Other 38 |
+
+## 4.5 CSE-CIC-IDS2018 for Cross-Dataset Testing
+CSE-CIC-IDS2018 [22] was recorded a year later by the same institute and the Communications Security Establishment on a different, cloud-hosted network, with a newer version of CICFlowMeter. Its ten processed CSV files (6.9 GB, 16,232,943 flows) use abbreviated column names, which the project maps to the 2017 names. It was never used for training; it serves only to test whether the model generalises to another network (Section 8.11).
+
+#CH 5|Solution Approach
+
+## 5.1 System Architecture
+Figure 5.1 shows the two layers of the system. In the training layer, four nodes train the models locally and exchange only model parameters with the aggregation server over TLS. The server aggregates the updates, evaluates the global model after every round, calibrates its decision thresholds on its own labelled hold-out and publishes the global model. In the detection layer, each protected host captures packets, assembles them into flows, computes the 30 features and applies the hybrid model. Confirmed attacks are passed to the prevention engine, and every decision is shown on the dashboard, explained and logged.
+
+FIG|fig_architecture.png|Figure 5.1: Architecture of A-IDAPS-FL|6.3
+
+## 5.2 The Hybrid Detector
+The detector combines two complementary models.
+
+The autoencoder is a neural network trained only on benign flows to reproduce its input. Its layers are 30-128-64-32-8-32-64-128-30, with ReLU activations and a sigmoid output (29,158 parameters, Adam optimiser, mean squared error loss). Benign flows are reconstructed well. A flow that does not resemble benign traffic is reconstructed poorly, so its reconstruction error is high. The autoencoder can therefore flag attacks it has never seen.
+
+XGBoost is a gradient-boosted tree classifier trained on labelled benign and attack flows. It recognises the known attack families very accurately. Its main settings are listed in Table 5.1.
+
+TAB|Table 5.1: Training settings of the two models
+| Setting | Autoencoder | XGBoost |
+| Training data | benign flows of each node | all flows of each node |
+| Federated aggregation | FedAvg, weighted by benign rows | bagging: new trees appended |
+| Rounds | 15 (1 local epoch, batch 1,024) | 40 (3 trees per node per round, 480 trees) |
+| Key parameters | Adam, MSE loss | depth 8, learning rate 0.1, subsample 0.8, column sample 0.8, per-node class weight |
+
+## 5.3 Decision Rule
+Each model produces a score between 0 and 1 that equals 0.5 exactly at its own threshold:
+
+EQ|dl_score = clip( MSE / (2 x 10 x t_AE), 0, 1 )
+EQ|ml_score = piecewise-linear map of the calibrated P(attack), equal to 0.5 at the calibrated cut-off
+EQ|final_score = max(dl_score, ml_score);   ATTACK if final_score > 0.5
+
+Here t_AE is the 90th percentile of the reconstruction error of benign calibration flows, so the autoencoder alone flags a flow only when its error is ten times that value. A flow is therefore an attack when either the classifier recognises a known attack or the reconstruction error is far above anything benign traffic produces. Taking the maximum rather than an average means a confident detector is never diluted by the other. In Phase 2 this rule was chosen over additive and averaged alternatives: on the DDoS day the additive rule produced an 18.8% false-positive rate and a plain average 5.6%, while the maximum rule gave 0.5%.
+
+## 5.4 Federated Training
+Training uses the Flower framework in its gRPC deployment mode: the server and each node are separate processes. A self-signed certificate authority and server certificate are generated once, and every node verifies the server's certificate before connecting, so all traffic is encrypted. Figure 5.2 shows one round. The autoencoder is aggregated with FedAvg: the server averages the four weight sets, weighted by each node's number of benign flows. Trees cannot be averaged, so XGBoost uses bagging: in every round each node loads the global model, grows three new trees on its own data and sends back only those trees, which the server appends.
+
+FIG|fig_fl_round.png|Figure 5.2: One federated training round|6.3
+
+## 5.5 Server-side Calibration
+After training, the server calibrates the global model on the calibration half of its hold-out. Three quantities are set.
+
+### 5.5.1 Autoencoder threshold
+t_AE is the 90th percentile of the reconstruction error of benign calibration flows. In the final model t_AE = 5.07 x 10^-5.
+
+### 5.5.2 Family-aware classifier cut-off
+Federated bagging produces trees that rank flows almost perfectly (ROC AUC 0.9998) but whose raw probabilities are too low, because node 3, which holds almost no attacks, adds trees that pull every probability down. At the default cut-off of 0.5 the federated booster detects only 39% of attacks, so the cut-off must be chosen on data. Phase 2 chose the cut-off with the best F1 score under a 1% false-positive budget. The retrain showed that this rule is blind to rare families: Bot and WebAttack together are only about 0.4% of attacks, so F1 hardly changes when they are lost. The F1 rule picked 0.254, which on the calibration half cost Bot 26 and WebAttack 38 percentage points of detection for an F1 gain of 0.0003. The final rule is: among cut-offs under the false-positive budget, keep those whose average per-family detection rate is within one percentage point of the best achievable, then take the best F1 among them. The chosen cut-off is 0.1615.
+
+### 5.5.3 Platt scaling
+The cut-off fixes the decisions, but the raw probabilities still make poor scores. A clear port scan has P(attack) = 0.26, which maps to a final score of only 0.56. The prevention engine acts only on scores of at least 0.75, so it would almost never block a port scanner. Platt scaling [16] fits a logistic function to the logit of the raw probability on the calibration half: calibrated P = sigmoid(a x logit(p) + b), with a = 5.58 and b = 9.25. Because the function is monotone and the cut-off is mapped through it as well, every ATTACK or NORMAL decision is identical; only the scores change and become real probabilities (Section 8.6).
+
+## 5.6 Live Detection Pipeline
+Live traffic is captured with Npcap [23] and Scapy. The extractor groups packets into flows and computes the 30 features in the same units as CICFlowMeter. It uses the capture timestamp of each packet, keeps exact running statistics, ends a flow after 120 seconds of duration as CICFlowMeter does, and orients flows that were already open when capture started by their port numbers. A flow is classified once it has two packets in either direction, so a scan probe (one SYN answered by one reset) is classified. The model then runs on a flow for its first ten packets and at most once per second afterwards, which keeps the system responsive during bulk transfers. The scope is unicast traffic, because every attack class in the dataset is unicast and local multicast discovery traffic caused most early false alarms.
+
+Two components complement the model on live traffic. A behavioural port-scan detector raises an alert when one source tries at least 20 distinct ports of one host within 10 seconds; it exists because the model learned the 2017 attacker's machine rather than scanning behaviour (Section 8.9). A local baseline ("learning mode") measures the reconstruction error of the network's own normal traffic for a few minutes and raises the live autoencoder threshold accordingly; it can never lower it.
+
+## 5.7 Autonomous Prevention
+The prevention engine blocks a source only when it produced at least three alerts with a score of at least 0.75 within 60 seconds. It never blocks loopback, link-local, multicast or private (LAN) addresses, the host's own addresses or anything on the allowlist. On Windows a block is an inbound rule in Windows Defender Firewall created with netsh; on Linux it is an iptables rule. Dry-run mode, the default, records the decision without changing the firewall. Every block, skip and undo is written to an audit log and to the event database, and any block can be reversed from the dashboard.
+
+## 5.8 Explainability and Persistence
+For each alert the dashboard shows three explanations: the exact TreeSHAP contribution of each feature to the XGBoost output [14], the share of the autoencoder's reconstruction error carried by each feature, and optionally a LIME-style local surrogate of the final hybrid score [15] fitted on 500 perturbed copies of the flow, with its local fit quality (R squared). The SHAP values are in the booster's raw log-odds units, before Platt scaling. Every verdict, alert and prevention action is stored in an SQLite database.
+
+#CH 6|Algorithms
+
+## 6.1 Federated Autoencoder Training (FedAvg)
+ALGO|Algorithm 6.1: Federated autoencoder training
+Input: nodes k = 1..4 with benign flows B_k; rounds R = 15
+Server: initialise weights W
+for round r = 1..R:
+    send W to every node over TLS
+    each node k: W_k = train(W, B_k, 1 epoch, batch 1024); return W_k and n_k = |B_k|
+    W = sum_k (n_k / sum_j n_j) * W_k                  (FedAvg)
+    evaluate W on the report half; log round metrics and traffic
+t_AE = 90th percentile of reconstruction error of benign calibration flows
+ENDALGO
+
+## 6.2 Federated XGBoost Training (Bagging)
+ALGO|Algorithm 6.2: Federated XGBoost training
+Input: nodes k = 1..4 with labelled flows (X_k, y_k); rounds R = 40
+Server: global booster G = empty
+for round r = 1..R:
+    send G to every node
+    each node k: grow 3 trees on (X_k, y_k) starting from G,
+                 with scale_pos_weight = benign_k / attacks_k; return the new trees
+    G = G + new trees of all nodes                     (12 trees per round)
+    evaluate G on the report half (AUC, recall at 0.5); log
+calibrate the cut-off (Algorithm 6.3) and Platt parameters on the calibration half
+ENDALGO
+
+## 6.3 Family-aware Cut-off Selection
+ALGO|Algorithm 6.3: Family-aware cut-off selection
+Input: calibration probabilities p, labels y, families f; FPR budget 1%; tolerance 0.01
+candidates = 999 quantiles of p
+for each cut-off t in candidates:
+    if FPR(p > t) > 1%: skip
+    macro(t) = mean over attack families (>= 20 rows) of detection rate at t
+    F1(t)    = F1 score of (p > t)
+keep the cut-offs with macro(t) >= max(macro) - 0.01
+return the kept cut-off with the highest F1(t)
+ENDALGO
+
+## 6.4 Hybrid Decision for One Flow
+ALGO|Algorithm 6.4: Hybrid decision
+Input: 30 raw features x; thresholds t_AE, cut-off c, Platt (a, b)
+z   = clip(MinMaxScale(x), 0, 1)
+mse = mean((z - AE(z))^2);              dl = clip(mse / (20 t_AE), 0, 1)
+p   = Platt(XGB(z));  c' = Platt(c)
+ml  = 0.5 p / c'                          if p <= c'
+      0.5 + 0.5 (p - c') / (1 - c')       otherwise
+final = max(dl, ml);   label = ATTACK if final > 0.5 else NORMAL
+ENDALGO
+
+## 6.5 Behavioural Port-scan Detection
+ALGO|Algorithm 6.5: Behavioural port-scan detection
+for every captured packet from src to dst:
+    if it is a TCP SYN without ACK, or a UDP datagram:
+        append (time, destination port) to events[src, dst]
+        drop events older than 10 s
+        if number of distinct ports >= next_alert[src, dst] (initially 20):
+            raise PortScan alert (source = src); next_alert += 20
+ENDALGO
+
+## 6.6 Prevention Policy
+ALGO|Algorithm 6.6: Prevention policy
+on every alert (source s, score v):
+    if prevention disabled or v < 0.75: return
+    record the alert time for s; keep only the last 60 s
+    if fewer than 3 alerts or s already blocked: return
+    if s is private, loopback, link-local, multicast, the host itself or allowlisted:
+        log "skip"; return
+    if dry-run: log "block" (no firewall change)
+    else: add firewall rule "block inbound from s"; on error mark the block inactive
+    save the block, write the audit log; undo deletes the rule
+ENDALGO
+
+#CH 7|Technology Used and Implementation
+
+## 7.1 Technology Stack
+TAB|Table 7.1: Technology stack
+| Component | Technology | Version |
+| Language | Python | 3.12.10 |
+| Deep learning (autoencoder, LSTM experiment) | TensorFlow / Keras | 2.21.0 / 3.15.1 |
+| Gradient boosting | XGBoost | 3.2.0 |
+| Pre-processing, metrics, Platt fit | scikit-learn, NumPy, pandas | 1.8.0, 2.3.3, 3.1.1 |
+| Federated learning | Flower (flwr), gRPC with TLS | 1.44.0 |
+| TLS certificates | cryptography | 50.0.2 |
+| Packet capture | Npcap + Scapy | 1.90 / 2.8.0 |
+| Dashboard | Streamlit | 1.67.0 |
+| Event store | SQLite | built into Python |
+| Firewall | Windows Defender Firewall (netsh) / iptables | Windows 11 |
+| Testing | pytest | 9.2.0 |
+
+All experiments in this report were run on a laptop with an Intel Core i3-1115G4 processor and 8 GB of memory running Windows 11, without a GPU.
+
+## 7.2 Project Structure
+TAB|Table 7.2: Main modules of the project
+| Module | Responsibility |
+| app.py, main.py | Streamlit dashboard; headless live IDS |
+| core/decision.py | decision rule, family-aware cut-off, Platt scaling |
+| core/predictor.py | loads the models; batch and single-flow prediction; SHAP and LIME |
+| core/scan_detector.py | behavioural port-scan detector |
+| core/prevention.py | firewall blocking with allowlist, audit and undo |
+| core/simulator.py, core/state.py, core/persistence.py | attack simulator; session statistics; SQLite store |
+| network/features.py, network/sniffer.py | live flow features; capture thread with throttling |
+| network/live_check.py, network/baseline.py | live validation; local baseline (learning mode) |
+| federated/prepare_data.py | dataset to node partitions and hold-out |
+| federated/client.py, server.py, run_federated.py | federated nodes, server, launcher |
+| federated/calibrate.py, evaluate.py | server calibration; centralised vs federated comparison |
+| federated/dp_analysis.py, comm_analysis.py, lstm_experiment.py, cross_dataset.py | privacy, traffic, temporal and cross-dataset experiments |
+| tests/ | 29 automated tests and a manual firewall test |
+
+## 7.3 Installation and Setup
+### 7.3.1 Requirements
+Python 3.12, the packages in requirements.txt, Npcap for live capture (installed with "restrict to administrators" unchecked, so no administrator rights are needed for capture) and the eight CIC-IDS2017 CSV files placed in a folder named MachineLearningCVE next to the repository. On Windows the virtual environment should be created in a short path, because TensorFlow fails to install when the full path exceeds 260 characters.
+
+### 7.3.2 Training and evaluation
+- python -m federated.prepare_data (partitions and hold-out, about one minute)
+- python -m federated.gen_certs (TLS certificates, once)
+- python -m federated.run_federated --tls (autoencoder then XGBoost; about 6 and 10 minutes)
+- python -m federated.evaluate (centralised baseline and comparison)
+- python -m federated.make_prototypes and python -m federated.export_global_model
+- python -m pytest tests -q
+
+### 7.3.3 Running the system
+- streamlit run app.py (dashboard) or python main.py (headless live IDS)
+- python -m network.baseline --minutes 5 (optional local baseline)
+- python -m network.live_check --scenario benign or --scenario portscan (live validation)
+
+## 7.4 Testing
+The project has 29 automated tests, all passing, and one manual test of the real firewall that needs administrator rights.
+
+TAB|Table 7.3: Automated tests
+| Test file | Tests | What is checked |
+| tests/test_features.py | 13 | units, direction, payload lengths, UDP convention, capture timestamps, active timeout, exact statistics, orientation of open flows, port-scan probe, inference throttle |
+| tests/test_predictor_regression.py | 5 | decision rule, threshold file, replay of 20,000 real hold-out flows with recall and false-positive floors overall and per family, single vs batch prediction |
+| tests/test_phase2_modules.py | 11 | prevention policy, privacy accounting, event store, LIME, simulator profiles, family-aware cut-off, Platt scaling keeps decisions, scan detector, alert source, live baseline |
+| tests/manual_firewall_check.py | manual | real Windows Firewall block, check, refusal of a private address, undo |
+
+#CH 8|Results and Analysis
+
+## 8.1 Evaluation Metrics
+Attack is the positive class. Accuracy is the share of correct verdicts, precision the share of alerts that are real attacks, recall (detection rate) the share of attacks detected, F1 the harmonic mean of precision and recall, and the false-positive rate (FPR) the share of benign flows flagged. All numbers in Sections 8.2 to 8.8 are measured on the report half of the hold-out (283,074 flows, 55,741 attacks), which was never used for training or calibration.
+
+## 8.2 Detection Performance
+TAB|Table 8.1: Detection performance on the report half
+| Model | Detector | Accuracy | Precision | Recall | F1 | FPR |
+| Phase 1 (DDoS day) | Autoencoder | 85.60% | 81.45% | 34.77% | 48.73% | 1.94% |
+| Phase 1 (DDoS day) | XGBoost | 84.87% | 99.67% | 23.24% | 37.69% | 0.02% |
+| Phase 1 (DDoS day) | Hybrid | 88.92% | 86.62% | 51.75% | 64.79% | 1.96% |
+| Centralised | Autoencoder | 86.34% | 93.11% | 33.09% | 48.83% | 0.60% |
+| Centralised | XGBoost | 99.79% | 98.95% | 99.99% | 99.47% | 0.26% |
+| Centralised | Hybrid | 99.31% | 96.61% | 100.00% | 98.27% | 0.86% |
+| Federated | Autoencoder | 86.69% | 93.29% | 34.90% | 50.80% | 0.62% |
+| Federated | XGBoost | 99.77% | 98.92% | 99.94% | 99.43% | 0.27% |
+| Federated | Hybrid | 99.28% | 96.53% | 99.94% | 98.20% | 0.88% |
+
+The federated hybrid reaches 99.28% accuracy and 99.94% recall at 0.88% FPR, while no raw flow was sent to the server. The centralised model, which needed 2,264,594 flows uploaded, is better by only 0.03 points of accuracy. The Phase 1 model, trained on one day, detects barely half of the attacks in the multi-attack data. The autoencoder on its own detects about a third of the attacks; its role in the hybrid is to add anomalies that the classifier has not learned, not to carry the main load. The Phase 1 numbers reproduce the earlier phases exactly, which confirms that the data pipeline is unchanged.
+
+## 8.3 Detection per Attack Family
+FIG|fig_family_recall.png|Figure 8.1: Detection rate per attack family (hybrid rule)|6.0
+
+Both Phase 2 models detect every family. The federated model detects DDoS 99.94%, DoS 99.94%, PortScan 100%, BruteForce 100%, Bot 97.0% and WebAttack 98.6% of the flows. The Phase 1 model detected 5.3% of port scans and 0.1% of brute-force flows. The Phase 2 report had stated that the federated model was much better than the centralised one on Bot and WebAttack (97.5% against 66.8%, and 99.5% against 60.0%). The retrain showed that this gap was caused by the best-F1 cut-off rule, not by federation: with the old rule the centralised model again gives 66.8% and 60.0%, and with the family-aware rule it gives 99.5% and 100%.
+
+## 8.4 Convergence
+FIG|fig_ae_convergence.png|Figure 8.2: Federated autoencoder over 15 rounds|6.3
+The benign reconstruction error falls from 4.8 x 10^-3 in round 1 to 2.8 x 10^-5 in round 15, and the autoencoder's own recall rises to 34.9% at 0.61% FPR. The autoencoder training took 6 minutes.
+
+FIG|fig_xgb_rounds.png|Figure 8.3: Federated XGBoost: ranking quality and recall at the raw 0.5 cut-off|6.0
+The ROC AUC of the federated booster is 0.997 after the first round and 0.9998 after 40 rounds, while recall at the fixed cut-off 0.5 reaches only 39%. This is the effect of node 3 described in Section 5.5.2 and the reason why server calibration is part of the design. XGBoost training took 10 minutes.
+
+## 8.5 Communication Cost
+TAB|Table 8.2: Communication cost of training
+| Quantity | Value |
+| Centralised training: raw flows uploaded | 2,264,594 flows (274.0 MB) |
+| Federated autoencoder | 117 KB per node per round; 14.0 MB for 15 rounds |
+| Federated XGBoost | 256.1 MB for 40 rounds; final model 3.13 MB (480 trees) |
+| Federated total | 270.0 MB, 0.99 times the raw upload, but no traffic records |
+
+The federated traffic is about as large as uploading the raw data once, but it consists only of model parameters and trees. Most of it is caused by redistributing the growing XGBoost model to all four nodes every round; sending only the trees added since the previous round would reduce it roughly twentyfold.
+
+## 8.6 Calibration
+FIG|fig_cutoff_sweep.png|Figure 8.4: Bot and WebAttack detection against the XGBoost cut-off (calibration half)|6.0
+Figure 8.4 shows why the cut-off rule matters. Both rare families fall off a cliff just below the cut-off chosen by best F1, while the family-aware cut-off sits on the flat part of both curves.
+
+FIG|fig_platt.png|Figure 8.5: Share of attack flows reaching the prevention threshold of 0.75, before and after Platt scaling|6.0
+Platt scaling leaves every decision and every number in Table 8.1 unchanged; this is checked by an automated test and by recomputing the report-half metrics. It reduces the expected calibration error of the classifier probability on the report half from 0.101 to 0.0007. The median final score of port-scan flows rises from 0.56 to 0.97 and that of the Bot demonstration flow from 0.538 to 0.912. Before calibration only 0.5% of port-scan flows and 12% of web-attack flows reached the blocking score of 0.75; after it, at least 97% of every family's flows do. The share of benign flows at or above 0.75 rises from 0.37% to 0.62%.
+
+## 8.7 Differential Privacy
+TAB|Table 8.3: Client-level differential privacy on the autoencoder (delta = 10^-5)
+| Noise multiplier | Clip norm | Rounds | Epsilon | Benign MSE | Autoencoder recall |
+| none | - | 15 | infinite | 2.8 x 10^-5 | 34.9% |
+| 0.3 | 1.0 | 15 | 145 | 1.5 x 10^-1 | 0.0% |
+| 0.05 | 20 | 15 | 3,372 | 1.9 x 10^-1 | 0.0% |
+| 0.01 | 1.0 | 15 | 76,901 | 9.6 x 10^-4 | 0.5% |
+| 0.01 | 1.0 | 40 | 203,151 | 3.3 x 10^-5 | 30.0% |
+
+With only four clients, the noise per weight is noise multiplier x clip norm / 4. Noise strong enough for a meaningful privacy guarantee (epsilon below 10) destroys the model, and the noise at which the model still trains gives an epsilon of 203,151, which is no guarantee at all. Differential privacy needs hundreds of clients. In this deployment privacy therefore rests on the federated design itself (raw traffic never leaves a node) and on TLS. The pipeline supports differential privacy end to end, so the experiment can be repeated with more nodes.
+
+## 8.8 Temporal Model Experiment
+An LSTM was trained on windows of ten consecutive flows, with a chronological 70/30 split within each capture day (128,598 training and 55,115 test windows), and compared with the hybrid applied flow by flow to the same windows.
+
+TAB|Table 8.4: LSTM against the flow-level hybrid (window level)
+| Detector | Accuracy | Precision | Recall | F1 | FPR |
+| LSTM over 10-flow windows | 88.50% | 76.71% | 63.16% | 69.28% | 4.95% |
+| Federated hybrid, any flow in window | 96.51% | 85.53% | 99.93% | 92.17% | 4.37% |
+
+The LSTM matches the hybrid on DDoS (99.4%) and PortScan (97.0%) but fails on DoS (0.9%), BruteForce (3.6%) and Bot (25.6%), because under a chronological split the test part of a day contains attack variants the sequence model has not seen. The temporal model is therefore not used. During the final checks a defect was found in the experiment script: it fed the hybrid features reconstructed from scaled data, which shifted some values by up to about 900 bytes and understated the hybrid's DoS detection (77% instead of 99.8%). The numbers above use the exact features.
+
+## 8.9 Live Validation
+With Npcap installed, the complete live pipeline was tested on a Windows 11 laptop on an office Wi-Fi network. The first runs exposed seven defects in the Phase 2 live path. All were fixed and unit-tested (Table 8.5).
+
+TAB|Table 8.5: Defects found by live testing
+| No. | Defect | Effect | Fix |
+| 1 | processing time used as packet time | a handshake processed in a burst looked like 2,000,000 packets/s | Npcap capture timestamp |
+| 2 | model run on every packet (about 17 ms each) | a 3,000 packets/s download starved all other flows | first 10 packets, then once per second per flow |
+| 3 | no active timeout; packet lists capped at 4,096 | long flows saturated, rates wrong | 120 s active timeout, exact running statistics |
+| 4 | flows open at capture start oriented by their first packet | a running download looked like a flood towards the client | orient by port unless the first packet is a SYN |
+| 5 | classification only after two forward packets | port scans invisible (a probe has one forward packet) | two packets in either direction |
+| 6 | alert source taken from the triggering packet | a probe is classified on the victim's reply, so the victim was named | flow's client-to-server direction |
+| 7 | multicast and broadcast judged by the model | mDNS and SSDP from other devices caused most alarms | unicast scope |
+
+FIG|fig_live_fp.png|Figure 8.6: Benign live packets flagged as attacks|4.8
+On benign traffic the share of flagged packets fell from 74.7% (first run, during a large download) to 6.9% after the fixes. Every remaining false alarm came from the autoencoder, while XGBoost gave P(attack) close to zero, mostly on long-lived encrypted keep-alive connections that the 2017 test network barely contained. Learning a local baseline for four minutes (3,337 flow snapshots) showed that the 90th-percentile reconstruction error of this network is 6.7 times that of the dataset. With the baseline, a separate 90-second capture flagged 15 of 1,359 packets (1.1%), all of them outbound HTTPS connections of the laptop itself, which the prevention engine can never block because their source is a private address. The median processing time per packet was 13 to 17 ms.
+
+A port scan of 100 ports of the laptop itself, over the loopback interface, gave the most important finding. The model classified 98 probe flows and flagged none. Table 8.6 shows why.
+
+TAB|Table 8.6: A live scan probe compared with a CIC-IDS2017 PortScan flow
+| Feature | Live probe (Windows) | Dataset PortScan flow |
+| Forward / backward packets | 1 / 1 | 1 / 1 |
+| Forward packets per second | about 24,000 | about 21,000 |
+| Initial TCP window, forward | 65,535 | 29,200 |
+| Backward packet length (minimum) | 0 | 6 |
+| Hybrid score | 0.009 (NORMAL) | 0.970 (ATTACK) |
+
+In the server hold-out, 100% of PortScan flows carry an initial TCP window of 29,200 (the Linux default of the attacker machine) or 1,024 (the nmap SYN scan), and the reset reply carries 6 bytes of Ethernet padding. Changing only these two fields of the live probe raises its score from 0.009 to 0.94. The model has therefore learned the 2017 attacker's machine, not scanning behaviour, an example of the shortcut learning described in [18]-[20]. A single probe contains no evidence of scanning; the evidence is how many ports one source touches. The behavioural detector (Section 5.6) detected the live scan, raising alerts at 20 and 40 distinct ports and naming the scanner as the source.
+
+## 8.10 Prevention on the Real Firewall
+The prevention engine was tested end to end against Windows Defender Firewall with a public test address (45.33.32.156, scanme.nmap.org). With administrator rights, the third alert with a score of at least 0.75 created an inbound block rule, which was confirmed with "netsh advfirewall firewall show rule". A private address with the same three alerts was refused, and undo deleted the rule, leaving no rule behind. Without administrator rights the engine recorded the "requires elevation" error and marked the block as inactive instead of reporting protection that did not exist.
+
+## 8.11 Cross-dataset Generalisation (CSE-CIC-IDS2018)
+The deployed model, unchanged, was applied to CSE-CIC-IDS2018. All 16,232,943 flows were read and a fixed-seed sample of 281,918 flows (up to 15,000 per attack label and 150,000 benign) was scored.
+
+TAB|Table 8.7: The federated hybrid on CSE-CIC-IDS2018
+| Evaluation | Accuracy | Precision | Recall | F1 | FPR |
+| Weighted to the full 16.2 million flows | 82.03% | 28.99% | 4.23% | 7.39% | 2.11% |
+| Balanced sample (131,918 attacks) | 57.73% | 83.40% | 12.07% | 21.09% | 2.11% |
+
+FIG|fig_cross_dataset.png|Figure 8.7: Detection per attack label on CSE-CIC-IDS2018|5.6
+The model detects only 4.2% of the 2018 attacks. DDoS, Bot and FTP brute force are not detected at all, while SSH brute force (47.9%), slowloris (46.2%) and XSS (49.6%) are partly detected. The column mapping was checked on benign traffic, which looks alike in both datasets (median 2 forward packets, payloads of 37 and 40 bytes, inter-arrival times in microseconds), so this is not a unit error. The attacks themselves differ: the 2018 DDoS tools have a median initial window of 32,738 and 1,123 packets per second, against 256 and 1.7 for the 2017 DDoS the model learned.
+
+## 8.12 Discussion
+The results tell one consistent story. On its own dataset the federated hybrid is excellent, and federation costs almost nothing in accuracy. But the live port scan and the 2018 test show that the supervised part has learned the tools and machines of the 2017 testbed rather than attack behaviour in general. A 99% score on a CIC-IDS2017 hold-out therefore says little about another network. The system addresses this in three ways that are independent of the dataset: the behavioural scan detector, the autoencoder with a local baseline, and calibrated scores that make the prevention policy predictable. The proper remedy is more diverse training data, which is exactly what federated learning makes possible: other organisations, for example with 2018-style traffic, can join as further nodes without sharing their data.
+
+#CH 9|Input and Output
+
+## 9.1 Dashboard Overview
+The Streamlit dashboard is the main user interface. Its top row shows live counters: flows analysed, attacks detected, attack rate, measured average latency and the hold-out accuracy of the deployed model. Below are the live packet feed, the traffic timeline, the threat alerts and the explanation panel (Figure 9.1).
+
+FIG|fig_dash_alerts_xai.png|Figure 9.1: Dashboard with nine simulated flows: feed, alerts and explanation of a port-scan alert|6.5
+In Figure 9.1, nine flows from the attack simulator have been injected. All six attacks are detected and all three normal flows are passed. The explanation panel shows why the last flow, a port scan, was flagged: the SHAP contributions of the classifier and the share of the autoencoder's reconstruction error per feature. The destination port and the initial TCP windows dominate, which agrees with the analysis in Section 8.9.
+
+## 9.2 Attack Simulator
+The simulator lets the user pick a traffic profile (Normal, DDoS, DoS, PortScan, BruteForce, Bot or WebAttack) and inject it. Each profile is a real flow from the hold-out, the family medoid, and its knobs (port, payload length, duration, rate, packet count, protocol) can be overridden to probe the model. Because the true label is known, the dashboard keeps a ground-truth confusion matrix and session metrics (Figure 9.2).
+
+TAB|Table 9.1: Simulator profiles and the system's verdicts
+| Profile | Expected | Verdict | Final score |
+| Normal | NORMAL | NORMAL | 0.023 |
+| DDoS | ATTACK | ATTACK | 1.000 |
+| DoS | ATTACK | ATTACK | 1.000 |
+| PortScan | ATTACK | ATTACK | 0.970 |
+| BruteForce | ATTACK | ATTACK | 1.000 |
+| Bot | ATTACK | ATTACK | 0.912 |
+| WebAttack | ATTACK | ATTACK | 0.966 |
+
+FIG|fig_dash_simulator.png|Figure 9.2: Simulator, confusion matrix, prevention panel and federated training panel|6.5
+The federated training panel on the right of Figure 9.2 shows the node partitions, the per-round curves of both models, the traffic and the TLS flag, and the centralised-versus-federated table.
+
+## 9.3 Live Operation
+After "Start IDS" the dashboard classifies the host's real traffic. Figure 9.3 shows 173 live flows from ordinary web browsing, all classified as normal, with the per-flow scores and the measured latency.
+
+FIG|fig_dash_live.png|Figure 9.3: Live monitoring of real traffic|6.5
+The headless version (python main.py) prints one line per classified flow and applies the same prevention policy. With auto-block enabled and "apply to firewall" switched on, confirmed attackers are blocked as described in Section 8.10.
+
+#CH 10|Conclusion
+
+## 10.1 Conclusion
+This project built a federated, explainable and self-protecting intrusion detection system and tested it more thoroughly than a dataset hold-out allows. Four nodes trained a hybrid autoencoder and XGBoost model over TLS without sharing any traffic. The global model detects every attack family of CIC-IDS2017 with 99.28% accuracy, 99.94% recall and a 0.88% false-positive rate, essentially as well as a centralised model that needed 2.26 million flows uploaded. Each alert is explained, logged and, when confirmed, can be blocked automatically at the firewall, which was verified on the real Windows firewall.
+
+Testing beyond the dataset changed the picture in useful ways. It found seven defects in the live path, including one that made port scans invisible. It showed that the supervised model learned the 2017 attacker's machine rather than scanning behaviour, and that it detects only 4.2% of the attacks in CSE-CIC-IDS2018. These negative results are part of the contribution: they show where the accuracy figures stop being valid and led directly to the behavioural scan detector, the local baseline and calibrated scores.
+
+## 10.2 Major Outcomes
+- Federated training of a hybrid IDS over four non-IID nodes with TLS, at 0.03 points of accuracy below centralised training.
+- A family-aware calibration rule that keeps rare attack families, and Platt scaling that turns scores into calibrated probabilities without changing any decision.
+- A live pipeline validated with Npcap, seven live defects fixed, a behavioural port-scan detector and a local baseline that cut live false alarms from 74.7% to 1.1% of packets.
+- Prevention verified on the real Windows firewall, with allowlist, audit and undo.
+- Measured, reproducible results: communication cost, differential privacy, a temporal model, live tests and a cross-dataset test, all with scripts and logged outputs, and 29 automated tests.
+
+## 10.3 Limitations
+- The supervised model does not generalise beyond the CIC-IDS2017 testbed (4.2% recall on CSE-CIC-IDS2018).
+- Differential privacy is not meaningful with four clients.
+- The federated nodes ran as processes on one machine; training across separate machines was not tested.
+- Live testing covered benign traffic and port scans only; other attacks need an isolated laboratory network.
+- TLS authenticates the server only; nodes are not authenticated, and aggregation is not robust to a malicious node.
+
+## 10.4 Future Scope
+- Add CSE-CIC-IDS2018 and other datasets as further federated nodes and measure cross-dataset detection again.
+- Send only the new trees each round, which would cut XGBoost traffic roughly twentyfold.
+- Repeat the differential privacy study with 50 to 200 simulated clients.
+- Add client authentication and Byzantine-robust aggregation.
+- Run the nodes on separate machines and validate live detection of DoS, brute-force and web attacks in an isolated laboratory network.
+- Reduce shortcut learning by removing or randomising testbed-specific features such as the initial TCP window during training.

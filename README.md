@@ -10,7 +10,7 @@ live Streamlit dashboard with per-prediction explainability.
 |---|---|---|
 | Phase 1 (Jan–Apr 2026) | done | Autoencoder + XGBoost trained centrally on the CIC-IDS2017 DDoS day, Scapy sniffer, Streamlit dashboard, attack simulator |
 | Phase 2 (Sep 2026) | done | Federated training over 4 non-IID nodes with TLS, multi-attack data (all 8 CIC-IDS2017 days), calibrated hybrid rule, differential privacy option, centralized-vs-federated evaluation, honest dashboard metrics |
-| Final (Nov 2026) | in progress | Full retrain, family-aware + Platt calibration, live validation with Npcap (7 live-path fixes, behavioural scan detector, local baseline), cross-dataset test on CSE-CIC-IDS2018, 29 passing tests; final report pending |
+| Final (Nov 2026) | done | Full retrain, family-aware + Platt calibration, live validation with Npcap (7 live-path fixes, behavioural scan detector, local baseline), firewall test, cross-dataset test on CSE-CIC-IDS2018, 29 passing tests, final report (`report/`) |
 
 ---
 
@@ -127,6 +127,7 @@ federated/                  Phase 2
   cross_dataset.py          deployed model on CSE-CIC-IDS2018 (no refit)
 hybrid_model/               model the dashboard uses (federated export; Phase 1 backup kept aside)
 tests/                      pytest: decision rule, extractor units, dataset replay, prevention, DP, LIME
+report/                     final project report (.docx / .pdf), its text, figures and build scripts
 ```
 
 ---
@@ -312,6 +313,22 @@ model learned. Together with the live port-scan finding this is one consistent c
 supervised model learned the 2017 testbed's tools and machines, not attack behaviour in general, so
 99% on a CIC-IDS2017 hold-out says little about other networks. Retraining with 2018 data as further
 federated nodes (the schema mapping already exists) is the natural next step.
+
+---
+
+## Final report
+
+`report/A-IDAPS-FL_Final_Report.pdf` (and `.docx`), 49 pages in the department's final-report format.
+It is generated from `report/content.txt`; every figure is regenerated from the logged results:
+
+```bash
+python report/make_figures.py <screenshots_dir>   # charts + diagrams -> report/figures/
+python report/make_report.py <out_dir>            # docx -> Word-rendered PDF -> page numbers -> final docx + PDF
+```
+
+`make_report.py` needs Microsoft Word (it renders the PDF through COM); it reads the page of every
+heading and caption back from the PDF and verifies the contents, list of figures and list of tables
+against the final PDF.
 
 ---
 

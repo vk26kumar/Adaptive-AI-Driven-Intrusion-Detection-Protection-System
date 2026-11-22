@@ -207,6 +207,11 @@ Header Length by up to ~900 bytes and understated the hybrid.)
 
 * `core/prevention.py`: auto-block a public source after 3 alerts scoring >= 0.75 within 60 s via
   Windows Firewall / iptables. Dry-run by default, allowlist, audit log, undo from the dashboard.
+  **Verified on the real Windows Firewall** (`tests/manual_firewall_check.py`, result in
+  `federated/logs/firewall_check.json`): as Administrator the 3rd alert created an inbound block rule
+  for the source (confirmed with `netsh ... show rule`), a private LAN address with the same alerts
+  was refused, and undo removed the rule. Without Administrator the engine records the netsh
+  "requires elevation" error and marks the block inactive instead of claiming protection.
 * `core/predictor.explain_lime`: LIME-style local surrogate of the final hybrid score (no extra dependency),
   next to TreeSHAP and the autoencoder error share.
 * `core/persistence.py`: SQLite event store for verdicts, alerts and prevention actions (`logs/ids_events.sqlite`).
@@ -277,7 +282,9 @@ raise the validated threshold). Here the local 90th percentile was 6.7× the dat
 
 Per-packet latency (feature extraction + both models) median 13–17 ms. The remaining flagged flows
 were this host's own outbound HTTPS; the prevention engine never blocks a private source, so they
-cannot trigger a block. Not tested live: attacks other than port scans (no isolated lab network).
+cannot trigger a block. Not tested live: attacks other than port scans (no isolated lab network), and
+federated training across physically separate machines (the nodes run as separate processes on one
+host over TLS).
 
 ---
 

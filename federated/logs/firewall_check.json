@@ -1,0 +1,93 @@
+{
+  "tested": "2026-11-22, Windows 11, netsh advfirewall",
+  "administrator": {
+    "admin": true,
+    "ip": "45.33.32.156",
+    "fired_after_hits": 3,
+    "record": {
+      "mode": "windows",
+      "active": true,
+      "error": "",
+      "rule": "AIDAPS_BLOCK_45_33_32_156"
+    },
+    "rule_in_windows_firewall_after_block": true,
+    "netsh_show_rule": "Rule Name:                            AIDAPS_BLOCK_45_33_32_156\n----------------------------------------------------------------------\nEnabled:                              Yes\nDirection:                            In\nProfiles:                             Domain,Private,Public\nGrouping:                             \nLocalIP:                              Any\nRemoteIP:                             45.33.32.156/32\nProtocol:                             Any\nEdge traversal:                       No\nAction:                               Block\nOk.",
+    "private_ip_blocked": false,
+    "unblock_ok": true,
+    "rule_in_windows_firewall_after_undo": false,
+    "state_after_undo": [],
+    "audit_log": [
+      {
+        "ts": "2026-11-22 17:14:11",
+        "event": "block",
+        "ip": "45.33.32.156",
+        "time": 1795347850.9813702,
+        "score": 0.99,
+        "hits": 3,
+        "attack_type": "PortScan",
+        "mode": "windows",
+        "rule": "AIDAPS_BLOCK_45_33_32_156",
+        "active": true,
+        "error": ""
+      },
+      {
+        "ts": "2026-11-22 17:14:11",
+        "event": "skip",
+        "ip": "192.168.1.50",
+        "reason": "private address (LAN peers are never auto-blocked)",
+        "score": 0.99
+      },
+      {
+        "ts": "2026-11-22 17:14:12",
+        "event": "unblock",
+        "ip": "45.33.32.156",
+        "error": ""
+      }
+    ]
+  },
+  "without_administrator": {
+    "admin": false,
+    "ip": "45.33.32.156",
+    "fired_after_hits": 3,
+    "record": {
+      "mode": "windows",
+      "active": false,
+      "error": "The requested operation requires elevation (Run as administrator).",
+      "rule": "AIDAPS_BLOCK_45_33_32_156"
+    },
+    "rule_in_windows_firewall_after_block": false,
+    "netsh_show_rule": "No rules match the specified criteria.",
+    "private_ip_blocked": false,
+    "unblock_ok": true,
+    "rule_in_windows_firewall_after_undo": false,
+    "state_after_undo": [],
+    "audit_log": [
+      {
+        "ts": "2026-11-22 17:13:57",
+        "event": "block",
+        "ip": "45.33.32.156",
+        "time": 1795347837.1337075,
+        "score": 0.99,
+        "hits": 3,
+        "attack_type": "PortScan",
+        "mode": "windows",
+        "rule": "AIDAPS_BLOCK_45_33_32_156",
+        "active": false,
+        "error": "The requested operation requires elevation (Run as administrator)."
+      },
+      {
+        "ts": "2026-11-22 17:13:57",
+        "event": "skip",
+        "ip": "192.168.1.50",
+        "reason": "private address (LAN peers are never auto-blocked)",
+        "score": 0.99
+      },
+      {
+        "ts": "2026-11-22 17:13:58",
+        "event": "unblock",
+        "ip": "45.33.32.156",
+        "error": ""
+      }
+    ]
+  }
+}

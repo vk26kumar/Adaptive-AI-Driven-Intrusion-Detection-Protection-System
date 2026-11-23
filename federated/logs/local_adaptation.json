@@ -1,0 +1,54 @@
+{
+  "rounds": 10,
+  "trees_before": 480,
+  "trees_after": 510,
+  "local_weight_share": 0.2,
+  "local_train_snapshots": 351,
+  "public_flows": 134423,
+  "report_half_before": {
+    "accuracy": 0.9928,
+    "precision": 0.9653,
+    "recall": 0.9994,
+    "f1": 0.982,
+    "fpr": 0.0088,
+    "per_family": {
+      "DDoS": 0.9994,
+      "DoS": 0.9994,
+      "PortScan": 1.0,
+      "BruteForce": 1.0,
+      "Bot": 0.9703,
+      "WebAttack": 0.986,
+      "Other": 1.0
+    }
+  },
+  "report_half_after": {
+    "accuracy": 0.9926,
+    "precision": 0.9644,
+    "recall": 0.9992,
+    "f1": 0.9815,
+    "fpr": 0.009,
+    "per_family": {
+      "DDoS": 0.9997,
+      "DoS": 0.9987,
+      "PortScan": 1.0,
+      "BruteForce": 1.0,
+      "Bot": 0.9752,
+      "WebAttack": 0.986,
+      "Other": 1.0
+    }
+  },
+  "live_test_before": {
+    "snapshots": 4403,
+    "flagged": 216,
+    "flagged_pct": 4.91,
+    "classifier_flags": 27,
+    "classifier_flags_pct": 0.61
+  },
+  "live_test_after": {
+    "snapshots": 4403,
+    "flagged": 202,
+    "flagged_pct": 4.59,
+    "classifier_flags": 0,
+    "classifier_flags_pct": 0.0
+  }
+}

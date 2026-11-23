@@ -13,7 +13,7 @@ from queue import Empty
 os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core.state import packet_queue, stop_event, classify_attack_type  # noqa: E402
+from core.state import packet_queue, stop_event, classify_attack_type, alert_kind  # noqa: E402
 from core.prevention import engine as prevention  # noqa: E402
 from core.persistence import store  # noqa: E402
 from network.sniffer import start_sniffing  # noqa: E402
@@ -33,8 +33,9 @@ def main():
                 r = packet_queue.get(timeout=1.0)
             except Empty:
                 continue
-            tag = "ATTACK" if r["label"] == "ATTACK" else "normal"
-            atype = (r.get("attack_type") or classify_attack_type(r["features"])) if r["label"] == "ATTACK" else None
+            kind = alert_kind(r)                     # attack / unusual (autoencoder only) / normal
+            tag = {"attack": "ATTACK", "unusual": "unusual", "normal": "normal"}[kind]
+            atype = (r.get("attack_type") or classify_attack_type(r["features"])) if kind == "attack" else None
             extra = f" type={atype}" if atype else ""
             store.log_flow(r, source="live", attack_type=atype)
             if atype:

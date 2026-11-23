@@ -10,7 +10,7 @@ live Streamlit dashboard with per-prediction explainability.
 |---|---|---|
 | Phase 1 (Jan–Apr 2026) | done | Autoencoder + XGBoost trained centrally on the CIC-IDS2017 DDoS day, Scapy sniffer, Streamlit dashboard, attack simulator |
 | Phase 2 (Sep 2026) | done | Federated training over 4 non-IID nodes with TLS, multi-attack data (all 8 CIC-IDS2017 days), calibrated hybrid rule, differential privacy option, centralized-vs-federated evaluation, honest dashboard metrics |
-| Final (Nov 2026) | done | Full retrain, family-aware + Platt calibration, live validation with Npcap (7 live-path fixes, behavioural scan detector, local baseline), firewall test, cross-dataset test on CSE-CIC-IDS2018, 29 passing tests, final report (`report/`) |
+| Final (Nov 2026) | done | Full retrain, family-aware + Platt calibration, live validation with Npcap (7 live-path fixes, behavioural scan detector, local baseline), firewall test, cross-dataset test on CSE-CIC-IDS2018, local adaptation node, simplified dashboard, 30 passing tests, final report (`report/`) |
 
 ---
 
@@ -49,7 +49,18 @@ live Streamlit dashboard with per-prediction explainability.
 * **Live capture validated** (Npcap 1.90, `network/live_check.py`); see *Live validation* below.
 * **Cross-dataset test** on CSE-CIC-IDS2018 (16.2 M flows): the 2017-trained model detects only
   4.2% of 2018 attacks (population-weighted) — a documented negative result; see below.
-* **Tests:** 29 (was 16), all passing, including the replay of 20,000 real flows.
+* **Local adaptation node** (`network/capture_local.py`, `federated/local_adapt.py`). The remaining live
+  false alarms of the classifier came from modern services the 2017 lab never had (mostly the AI
+  development assistant's own streaming connection, also DNS and Windows Delivery Optimization). The
+  laptop joined as one more bagging node: 351 snapshots of its own normal traffic (never shared) plus
+  134,423 public CIC-IDS2017 training flows, 30 new trees on top of the global booster, then server
+  recalibration. On a separate later capture (4,403 snapshots) normal traffic called an attack fell
+  from 0.61% to 0.00%; on the report half accuracy 99.28% -> 99.26%, recall
+  99.94% -> 99.92%, FPR 0.88% -> 0.90%. The dashboard uses this adapted model (previous one
+  kept in `hybrid_model_pre_local/`). Results in `federated/logs/local_adaptation.json`.
+* **Simplified dashboard** with three alert levels: attack (classifier or scan rule; named, counted,
+  may be blocked), unusual (autoencoder only; shown, never blocked) and normal (`core/state.alert_kind`).
+* **Tests:** 30 (was 16), all passing, including the replay of 20,000 real flows.
 
 ---
 
@@ -110,6 +121,7 @@ network/
   sniffer.py                Scapy capture thread (unicast scope, per-flow inference throttle)
   live_check.py             live validation: benign traffic / port scan of this machine
   baseline.py               learning mode: live autoencoder threshold for this network
+  capture_local.py          record this computer's normal traffic for the local adaptation node
 federated/                  Phase 2
   config.py                 nodes, label map, hyper-parameters, decision constants
   prepare_data.py           8 CSVs → 4 non-IID node partitions + calibration/report hold-out
@@ -125,6 +137,7 @@ federated/                  Phase 2
   comm_analysis.py          traffic and convergence figures
   lstm_experiment.py        temporal-model experiment
   cross_dataset.py          deployed model on CSE-CIC-IDS2018 (no refit)
+  local_adapt.py            local adaptation node (own normal traffic + public flows)
 hybrid_model/               model the dashboard uses (federated export; Phase 1 backup kept aside)
 tests/                      pytest: decision rule, extractor units, dataset replay, prevention, DP, LIME
 report/                     final project report (.docx / .pdf), its text, figures and build scripts
@@ -162,7 +175,7 @@ python -m federated.evaluate                # centralized baseline + comparison 
 python -m federated.make_prototypes         # simulator profiles (family medoids)
 python -m federated.export_global_model     # dashboard now uses the federated model
 python -m federated.comm_analysis           # traffic and convergence summary
-python -m pytest tests -q                   # 29 tests incl. dataset replay regression
+python -m pytest tests -q                   # 30 tests incl. dataset replay regression
 streamlit run app.py
 ```
 
@@ -334,15 +347,18 @@ against the final PDF.
 
 ## Dashboard
 
-* **Live packet feed** with measured per-flow latency and the model's two scores (XGBoost as a
-  Platt-calibrated probability); behavioural port-scan alerts are labelled PortScan.
-* **Attack simulator**: pick a traffic profile (a real flow of that family, the medoid) and optionally
-  override knobs; the confusion matrix uses the profile's true label.
-* **XAI**: TreeSHAP contributions of the XGBoost decision and the autoencoder's per-feature
-  reconstruction-error share, for the most recent alert or simulated flow.
-* **Federated training panel**: node partitions, per-round recall/FPR curves (XGBoost curve at the raw
-  0.5 cutoff, before server calibration), traffic, TLS/DP flags, DP and LSTM tables,
-  centralized-vs-federated table.
+`streamlit run app.py`. Plain-language view for non-specialists: Start/Stop, four numbers (connections
+checked, attacks found, attackers blocked, model accuracy) and four tabs:
+
+* **Live Monitor**: green "All clear", yellow "unusual traffic" or red "Attack detected" banner, recent
+  connections (✅ / ⚠️ / 🚨) and alerts with a "Why?" in plain words (TreeSHAP and autoencoder error share).
+* **Try an Attack**: send one real recorded flow of a chosen type through the model and see whether it is caught.
+* **Protection**: automatic blocking on/off, practice mode or real firewall, unblock.
+* **How It Was Trained**: federated training summary, accuracy table, detection per attack type;
+  research details (round curves, traffic, cross-dataset limit) in a collapsed developer section.
+
+Counts are per connection (a connection re-checked several times counts once). `IDS_IFACE` selects the
+capture adapter (e.g. `\Device\NPF_Loopback` for local tests).
 
 ---
 

@@ -340,7 +340,8 @@ para("Machine-learning intrusion detection needs large amounts of labelled netwo
      "from 74.7% to 0.9% of benign packets. It also showed that the supervised model learned the 2017 test network's "
      "attacker machine rather than scanning behaviour, so a behavioural port-scan detector was added, and that the model "
      "detects only 4.2% of the attacks in CSE-CIC-IDS2018. These negative results mark where the dataset accuracy stops "
-     "being valid and motivate federated training with more diverse data.")
+     "being valid. Letting the laptop join as a local adaptation node removed the classifier's false alarms on its "
+     "normal traffic (0.61% to 0%) at unchanged dataset accuracy.")
 para("Keywords: intrusion detection, federated learning, autoencoder, XGBoost, calibration, explainable AI, "
      "CIC-IDS2017, CSE-CIC-IDS2018", italic=True, before=6)
 page_break()

@@ -113,3 +113,23 @@ def classify_attack_type(features: dict) -> str:
     if port in _IRC_PORTS:
         return "Bot"
     return "Other"
+
+
+def alert_kind(result: dict) -> str:
+    """How serious a live verdict is.
+
+    "attack"  : the supervised model recognises a known attack (calibrated
+                XGBoost P(attack) > 0.5) or the behavioural port-scan rule fired.
+                Only these get an attack name, count as attacks and may be blocked.
+    "unusual" : only the autoencoder flagged it (traffic unlike anything in the
+                training data).  Live testing showed these are mostly modern
+                benign services the 2017 lab never had (long AI-API streams,
+                Windows Delivery Optimization, DNS over TCP), so they are shown
+                as a warning, never named as an attack type and never blocked.
+    "normal"  : not flagged.
+    """
+    if result.get("label") != "ATTACK":
+        return "normal"
+    if result.get("detector") or float(result.get("ml_prob", 0.0)) > 0.5:
+        return "attack"
+    return "unusual"

@@ -172,3 +172,13 @@ def test_live_baseline_can_only_raise_the_threshold(tmp_path, monkeypatch):
     assert B.load_live_thresholds(base)["ae_threshold"] == 2e-4         # raised
     p.write_text(json.dumps({"ae_threshold_live": 1e-6}))
     assert B.load_live_thresholds(base)["ae_threshold"] == 5e-5         # never lowered
+
+
+def test_alert_kind_separates_attacks_from_unusual_traffic():
+    """Only the classifier or the scan rule may call something an attack;
+    autoencoder-only flags are 'unusual' (live false alarms were all of this kind)."""
+    from core.state import alert_kind
+    assert alert_kind({"label": "NORMAL", "ml_prob": 0.9}) == "normal"
+    assert alert_kind({"label": "ATTACK", "ml_prob": 0.97, "dl_score": 0.1}) == "attack"
+    assert alert_kind({"label": "ATTACK", "ml_prob": 0.0, "dl_score": 1.0}) == "unusual"
+    assert alert_kind({"label": "ATTACK", "ml_prob": 0.0, "detector": "behaviour: 20 ports"}) == "attack"

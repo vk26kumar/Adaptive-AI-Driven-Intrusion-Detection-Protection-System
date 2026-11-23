@@ -18,7 +18,7 @@ TAB|Table 1.1: Phases of the project
 | Phase | Period | Main deliverables |
 | Phase 1 | Jan-Apr 2026 | Autoencoder + XGBoost hybrid trained centrally on the CIC-IDS2017 DDoS day; Scapy packet sniffer; Streamlit dashboard; attack simulator |
 | Phase 2 | Jul-Sep 2026 | Federated training (Flower) over four non-IID nodes with TLS; all eight capture days; calibrated decision rule; differential privacy option; prevention engine; SHAP and LIME explanations; event logging; 16 tests |
-| Final | Oct-Nov 2026 | Full retrain; family-aware and Platt calibration; seven live-capture defects fixed; behavioural port-scan detector; local live baseline; firewall test; CSE-CIC-IDS2018 cross-dataset test; 29 tests |
+| Final | Oct-Nov 2026 | Full retrain; family-aware and Platt calibration; seven live-capture defects fixed; behavioural port-scan detector; local baseline and local adaptation node; firewall test; CSE-CIC-IDS2018 cross-dataset test; simplified dashboard; 30 tests |
 
 ## 1.3 Organisation of the Report
 Chapter 2 reviews related work and states the objectives. Chapter 3 defines the problem and lists the weaknesses of the earlier phases that this work had to correct. Chapter 4 describes the data. Chapter 5 presents the design of the system and Chapter 6 its main algorithms. Chapter 7 covers the technology, implementation, setup and testing. Chapter 8 reports all results, including the negative ones. Chapter 9 shows the dashboard and its outputs, and Chapter 10 concludes with the limitations and future scope.
@@ -290,7 +290,7 @@ TAB|Table 7.2: Main modules of the project
 | federated/client.py, server.py, run_federated.py | federated nodes, server, launcher |
 | federated/calibrate.py, evaluate.py | server calibration; centralised vs federated comparison |
 | federated/dp_analysis.py, comm_analysis.py, lstm_experiment.py, cross_dataset.py | privacy, traffic, temporal and cross-dataset experiments |
-| tests/ | 29 automated tests and a manual firewall test |
+| tests/ | 30 automated tests and a manual firewall test |
 
 ## 7.3 Installation and Setup
 ### 7.3.1 Requirements
@@ -310,13 +310,13 @@ Python 3.12, the packages in requirements.txt, Npcap for live capture (installed
 - python -m network.live_check --scenario benign or --scenario portscan (live validation)
 
 ## 7.4 Testing
-The project has 29 automated tests, all passing, and one manual test of the real firewall that needs administrator rights.
+The project has 30 automated tests, all passing, and one manual test of the real firewall that needs administrator rights.
 
 TAB|Table 7.3: Automated tests
 | Test file | Tests | What is checked |
 | tests/test_features.py | 13 | units, direction, payload lengths, UDP convention, capture timestamps, active timeout, exact statistics, orientation of open flows, port-scan probe, inference throttle |
 | tests/test_predictor_regression.py | 5 | decision rule, threshold file, replay of 20,000 real hold-out flows with recall and false-positive floors overall and per family, single vs batch prediction |
-| tests/test_phase2_modules.py | 11 | prevention policy, privacy accounting, event store, LIME, simulator profiles, family-aware cut-off, Platt scaling keeps decisions, scan detector, alert source, live baseline |
+| tests/test_phase2_modules.py | 12 | prevention policy, privacy accounting, event store, LIME, simulator profiles, family-aware cut-off, Platt scaling keeps decisions, scan detector, alert source, live baseline, alert levels |
 | tests/manual_firewall_check.py | manual | real Windows Firewall block, check, refusal of a private address, undo |
 
 #CH 8|Results and Analysis
@@ -417,13 +417,25 @@ TAB|Table 8.6: A live scan probe compared with a CIC-IDS2017 PortScan flow
 
 In the server hold-out, 99.9% of PortScan flows carry an initial TCP window of 29,200 (the Linux default of the attacker machine) or 1,024 (the nmap SYN scan), and the reset reply carries 6 bytes of Ethernet padding. Changing only these two fields of the live probe raises its score from 0.009 to 0.94. The model has therefore learned the 2017 attacker's machine, not scanning behaviour, an example of the shortcut learning described in [18]-[20]. A single probe contains no evidence of scanning; the evidence is how many ports one source touches. The behavioural detector (Section 5.6) detected the live scan, raising alerts at 20 and 40 distinct ports and naming the scanner as the source.
 
+### 8.9.1 Local Adaptation Node
+With the improved pipeline, the remaining live false alarms of the classifier came almost entirely from modern services the 2017 lab never had: the streaming connection of the AI development assistant running on the same laptop (82% of classifier alarms in one 15-minute window), DNS and Windows Delivery Optimization. The federated design offers the remedy: the deployment network joins as one more node. The laptop recorded 351 snapshots of its own normal traffic (python -m network.capture_local), which never left the machine, and trained 30 additional XGBoost trees on top of the global model together with 134,423 public CIC-IDS2017 training flows (python -m federated.local_adapt), exactly as one more bagging node; the server then recalibrated on its calibration half. A separate capture recorded later and never used for training (4,403 snapshots) measured the effect.
+
+TAB|Table 8.7: Effect of the local adaptation node
+| Measure | Before (4 nodes) | After (+ local node) |
+| Live normal traffic classified as attack (separate capture) | 0.61% | 0.00% |
+| Report half: accuracy | 99.28% | 99.26% |
+| Report half: recall (attacks caught) | 99.94% | 99.92% |
+| Report half: false-positive rate | 0.88% | 0.90% |
+
+The classifier's false attacks on the unseen live capture fell to zero while the dataset results changed by 0.02 points; every attack family is still detected (Bot 97.0% to 97.5%). The dashboard now uses this adapted model. Autoencoder-only flags remain (about 4.6% of live snapshots); the dashboard shows them as "unusual traffic", not as attacks, and they never lead to a block. One limit must be stated: the node's normal traffic comes from the live extractor while its attack examples come from the dataset, so live detection of attacks other than port scans could not be re-verified without an isolated laboratory network.
+
 ## 8.10 Prevention on the Real Firewall
 The prevention engine was tested end to end against Windows Defender Firewall with a public test address (45.33.32.156, scanme.nmap.org). With administrator rights, the third alert with a score of at least 0.75 created an inbound block rule, which was confirmed with "netsh advfirewall firewall show rule". A private address with the same three alerts was refused, and undo deleted the rule, leaving no rule behind. Without administrator rights the engine recorded the "requires elevation" error and marked the block as inactive instead of reporting protection that did not exist.
 
 ## 8.11 Cross-dataset Generalisation (CSE-CIC-IDS2018)
 The deployed model, unchanged, was applied to CSE-CIC-IDS2018. All 16,232,943 flows were read and a fixed-seed sample of 281,918 flows (up to 15,000 per attack label and 150,000 benign) was scored.
 
-TAB|Table 8.7: The federated hybrid on CSE-CIC-IDS2018
+TAB|Table 8.8: The federated hybrid on CSE-CIC-IDS2018
 | Evaluation | Accuracy | Precision | Recall | F1 | FPR |
 | Weighted to the full 16.2 million flows | 82.03% | 28.99% | 4.23% | 7.39% | 2.11% |
 | Balanced sample (131,918 attacks) | 57.73% | 83.40% | 12.07% | 21.09% | 2.11% |
@@ -437,32 +449,34 @@ The results tell one consistent story. On its own dataset the federated hybrid i
 #CH 9|Input and Output
 
 ## 9.1 Dashboard Overview
-The Streamlit dashboard is the main user interface. Its top row shows live counters: flows analysed, attacks detected, attack rate, measured average latency and the hold-out accuracy of the deployed model. Below are the live packet feed, the traffic timeline, the threat alerts and the explanation panel (Figure 9.1).
+The Streamlit dashboard is the user interface. It was redesigned for non-specialist users: one sentence says what the tool does, a single button starts or stops monitoring, four numbers summarise the session (connections checked, attacks found, attackers blocked, model accuracy on the test data) and four tabs hold the rest: Live Monitor, Try an Attack, Protection and How It Was Trained. Attack families are named in plain words (for example "Port scan (checking for open doors)") and explanations are given as short reasons.
 
-FIG|fig_dash_alerts_xai.png|Figure 9.1: Dashboard with nine simulated flows: feed, alerts and explanation of a port-scan alert|6.5
-In Figure 9.1, nine flows from the attack simulator have been injected. All six attacks are detected and all three normal flows are passed. The explanation panel shows why the last flow, a port scan, was flagged: the SHAP contributions of the classifier and the share of the autoencoder's reconstruction error per feature. The destination port and the initial TCP windows dominate, which agrees with the analysis in Section 8.9.
+Live verdicts have three levels. A connection is an attack (red) only when the classifier recognises a known attack or the behavioural port-scan rule fires; only these are named, counted and can lead to a block. A connection flagged by the autoencoder alone is shown as unusual traffic (yellow) with a plain explanation, because live testing showed these are usually newer kinds of normal traffic. Everything else is normal (green).
 
-## 9.2 Attack Simulator
-The simulator lets the user pick a traffic profile (Normal, DDoS, DoS, PortScan, BruteForce, Bot or WebAttack) and inject it. Each profile is a real flow from the hold-out, the family medoid, and its knobs (port, payload length, duration, rate, packet count, protocol) can be overridden to probe the model. Because the true label is known, the dashboard keeps a ground-truth confusion matrix and session metrics (Figure 9.2).
+## 9.2 Live Monitor
+FIG|fig_dash_live.png|Figure 9.1: Live monitoring of this computer's real traffic|6.3
+Figure 9.1 shows live monitoring of ordinary browsing with the adapted model: 23 connections checked, no attack on the live traffic, and one connection marked as unusual traffic and not blocked. The single attack counted in the session is the simulated Bot flow of Section 9.3. A port scan of the laptop raised "Port scan (checking for open doors)" alerts from the behavioural rule at 20 and 40 ports.
 
-TAB|Table 9.1: Simulator profiles and the system's verdicts
+## 9.3 Try an Attack
+The Try an Attack tab sends one real recorded flow of the chosen type (the family medoid from the hold-out) through the model; nothing is sent over the network. The result states whether the system was right and gives the main reasons (Figure 9.2).
+
+FIG|fig_dash_try.png|Figure 9.2: Testing the model with a recorded Bot flow|6.3
+
+TAB|Table 9.1: Test profiles and the system's verdicts (adapted model)
 | Profile | Expected | Verdict | Final score |
-| Normal | NORMAL | NORMAL | 0.023 |
-| DDoS | ATTACK | ATTACK | 1.000 |
-| DoS | ATTACK | ATTACK | 1.000 |
-| PortScan | ATTACK | ATTACK | 0.970 |
-| BruteForce | ATTACK | ATTACK | 1.000 |
-| Bot | ATTACK | ATTACK | 0.912 |
-| WebAttack | ATTACK | ATTACK | 0.966 |
+| Normal traffic | NORMAL | NORMAL | 0.023 |
+| Flood attack (DDoS) | ATTACK | ATTACK | 1.000 |
+| Overload attack (DoS) | ATTACK | ATTACK | 1.000 |
+| Port scan | ATTACK | ATTACK | 0.990 |
+| Password guessing | ATTACK | ATTACK | 1.000 |
+| Infected machine (bot) | ATTACK | ATTACK | 0.963 |
+| Website attack | ATTACK | ATTACK | 0.967 |
 
-FIG|fig_dash_simulator.png|Figure 9.2: Simulator, confusion matrix, prevention panel and federated training panel|6.5
-The federated training panel on the right of Figure 9.2 shows the node partitions, the per-round curves of both models, the traffic and the TLS flag, and the centralised-versus-federated table.
+## 9.4 Protection and Training Summary
+The Protection tab switches automatic blocking on or off, chooses practice mode (record only) or the real firewall, and lists blocked addresses with an Unblock button. The How It Was Trained tab summarises federated training and the results on the test data (Figure 9.3); research details such as per-round curves are kept in a collapsed section for developers.
 
-## 9.3 Live Operation
-After "Start IDS" the dashboard classifies the host's real traffic. Figure 9.3 shows 173 live flows from ordinary web browsing, all classified as normal, with the per-flow scores and the measured latency.
-
-FIG|fig_dash_live.png|Figure 9.3: Live monitoring of real traffic|6.5
-The headless version (python main.py) prints one line per classified flow and applies the same prevention policy. With auto-block enabled and "apply to firewall" switched on, confirmed attackers are blocked as described in Section 8.10.
+FIG|fig_dash_trained.png|Figure 9.3: Training summary and detection per attack type of the model in use|6.3
+The headless version (python main.py) prints one line per classified connection with the same three levels and applies the same prevention policy.
 
 #CH 10|Conclusion
 
@@ -476,7 +490,9 @@ Testing beyond the dataset changed the picture in useful ways. It found seven de
 - A family-aware calibration rule that keeps rare attack families, and Platt scaling that turns scores into calibrated probabilities without changing any decision.
 - A live pipeline validated with Npcap, seven live defects fixed, a behavioural port-scan detector and a local baseline that cut live false alarms from 74.7% to 0.9% of packets.
 - Prevention verified on the real Windows firewall, with allowlist, audit and undo.
-- Measured, reproducible results: communication cost, differential privacy, a temporal model, live tests and a cross-dataset test, all with scripts and logged outputs, and 29 automated tests.
+- A local adaptation node that teaches the global model the deployment network's own normal traffic without it leaving the machine: live false attacks 0.61% to 0.00% at unchanged dataset accuracy.
+- A simplified dashboard with plain-language verdicts and separate attack and unusual-traffic levels.
+- Measured, reproducible results: communication cost, differential privacy, a temporal model, live tests and a cross-dataset test, all with scripts and logged outputs, and 30 automated tests.
 
 ## 10.3 Limitations
 - The supervised model does not generalise beyond the CIC-IDS2017 testbed (4.2% recall on CSE-CIC-IDS2018).

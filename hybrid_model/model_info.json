@@ -1,5 +1,5 @@
 {
-  "source": "federated (Flower) global model",
+  "source": "federated (Flower) global model + local adaptation node",
   "exported": "2026-11-22 10:59:01",
   "nodes": 4,
   "node_attack_families": {
@@ -37,18 +37,18 @@
       "fpr": 0.0027
     },
     "hybrid": {
-      "accuracy": 0.9928,
-      "precision": 0.9653,
-      "recall": 0.9994,
-      "f1": 0.982,
-      "fpr": 0.0088
+      "accuracy": 0.9926,
+      "precision": 0.9644,
+      "recall": 0.9992,
+      "f1": 0.9815,
+      "fpr": 0.009
     },
     "hybrid_recall_per_family": {
-      "DDoS": 0.9994,
-      "DoS": 0.9994,
+      "DDoS": 0.9997,
+      "DoS": 0.9987,
       "PortScan": 1.0,
       "BruteForce": 1.0,
-      "Bot": 0.9703,
+      "Bot": 0.9752,
       "WebAttack": 0.986,
       "Other": 1.0
     },
@@ -76,5 +76,14 @@
       }
     },
     "training_rows_moved_to_server": 0
+  },
+  "local_adaptation": {
+    "date": "2026-11-23",
+    "node": "this computer (own normal traffic + public CIC-IDS2017 flows)",
+    "trees": "480 -> 510",
+    "live_test_classifier_flags_pct": [
+      0.61,
+      0.0
+    ]
   }
 }

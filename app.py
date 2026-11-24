@@ -30,7 +30,7 @@ from core.simulator import simulate_packet, PROFILES
 from core.prevention import engine as prevention, BLOCK_THRESHOLD, MIN_HITS, WINDOW_S
 from core.persistence import store
 
-st.set_page_config(page_title="A-IDAPS-FL | Network Guard", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="A-IDAPS-FL | Network Guard", layout="wide")
 
 # ----------------------------------------------------------- plain language --
 FRIENDLY = {
@@ -168,7 +168,7 @@ def _why(features, label):
 if S["running"]:
     _drain_queue()
 
-st.title("🛡️ A-IDAPS-FL Network Guard")
+st.title("A-IDAPS-FL Network Guard")
 st.caption("Watches your network traffic, spots attacks with AI, explains why, and can block the attacker.")
 
 b1, b2, b3, status = st.columns([1, 1, 1, 3])
@@ -184,7 +184,7 @@ if b3.button("Clear", width="stretch"):
     S.update({"stats": Stats(), "rows": [], "alerts": [], "sim": None, "sim_tests": 0, "sim_correct": 0, "sim_attacks": 0,
               "flows_seen": set(), "flows_attack": set(), "flows_unusual": set(), "last_alert": {}})
     st.rerun()
-status.markdown(f"**Monitoring:** {'🟢 ON (watching live traffic)' if S['running'] else '⚪ OFF'}")
+status.markdown(f"**Monitoring:** {'ON (watching live traffic)' if S['running'] else 'OFF'}")
 if S["sniffer_error"]:
     st.error(f"Live capture is not available: {S['sniffer_error']}. Install Npcap (npcap.com). "
              "The 'Try an Attack' tab still works.")
@@ -201,7 +201,7 @@ k4.metric("Model accuracy (test data)", f"{acc * 100:.2f}%" if acc else "n/a",
           help="Measured on 283,074 recorded connections the model never saw during training.")
 
 tab_live, tab_try, tab_protect, tab_train = st.tabs(
-    ["🔴 Live Monitor", "🧪 Try an Attack", "🛡️ Protection", "📊 How It Was Trained"])
+    ["Live Monitor", "Try an Attack", "Protection", "How It Was Trained"])
 
 # ============================================================ live monitor ==
 with tab_live:
@@ -214,16 +214,16 @@ with tab_live:
                     unsafe_allow_html=True)
     elif recent_attack:
         a = recent_attack
-        st.markdown(f'<div class="banner bad">🚨 Attack detected: {FRIENDLY.get(a["type"], a["type"])}'
+        st.markdown(f'<div class="banner bad">Attack detected: {FRIENDLY.get(a["type"], a["type"])}'
                     f'<div class="sub">From {a["from"]} to port {a["port"]} · '
                     f'{a["score"]:.0%} sure · {a["time"]}</div></div>', unsafe_allow_html=True)
     elif recent_unusual:
-        st.markdown(f'<div class="banner warn">✅ No attacks · ⚠️ some unusual traffic'
+        st.markdown(f'<div class="banner warn">No attacks · some unusual traffic'
                     f'<div class="sub">{n_conn:,} connections checked. A few connections look different from the '
                     f'traffic the AI was trained on, but it does not recognise them as attacks. They are not '
                     f'blocked.</div></div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="banner ok">✅ All clear<div class="sub">{n_conn:,} connections checked, '
+        st.markdown(f'<div class="banner ok">All clear<div class="sub">{n_conn:,} connections checked, '
                     f'no attack in the last 30 seconds.</div></div>', unsafe_allow_html=True)
 
     left, right = st.columns([3, 2], gap="large")
@@ -231,7 +231,7 @@ with tab_live:
         st.subheader("Recent connections")
         if S["rows"]:
             df = pd.DataFrame([{"Time": r["time"], "From": r["from"], "To port": r["port"],
-                                "Verdict": {"attack": "🚨 Attack", "unusual": "⚠️ Unusual"}.get(r.get("kind"), "✅ Normal"),
+                                "Verdict": {"attack": "Attack", "unusual": "Unusual"}.get(r.get("kind"), "Normal"),
                                 "How sure": f"{(r['score'] if r['label'] == 'ATTACK' else 1 - r['score']):.0%}",
                                 "Source": "live" if r["source"] == "live" else "test"} for r in S["rows"][:25]])
             st.dataframe(df, hide_index=True, width="stretch", height=380)
@@ -244,7 +244,7 @@ with tab_live:
                 # stable key per alert: avoids "ghost" copies while the page auto-refreshes
                 with st.container(border=True, key=f"alert_{a['ts']:.6f}"):
                     if a.get("kind") == "unusual":
-                        st.markdown(f"**⚠️ Unusual traffic (not an attack)**  \n"
+                        st.markdown(f"**Unusual traffic (not an attack)**  \n"
                                     f"from `{a['from']}` → port {a['port']} · {a['time']}")
                         with st.expander("What does this mean?"):
                             st.markdown("Only the anomaly detector flagged this connection: it looks different "
@@ -253,7 +253,7 @@ with tab_live:
                                         "usually a newer kind of normal traffic (for example a long streaming "
                                         "connection, Windows update sharing or DNS).")
                         continue
-                    st.markdown(f"**🚨 {FRIENDLY.get(a['type'], a['type'])}**  \n"
+                    st.markdown(f"**{FRIENDLY.get(a['type'], a['type'])}**  \n"
                                 f"from `{a['from']}` → port {a['port']} · {a['score']:.0%} sure · {a['time']}")
                     if a["note"]:
                         st.caption(a["note"].replace("behaviour:", "Seen by the port-scan rule:"))
@@ -282,7 +282,7 @@ with tab_try:
             port = st.number_input("Target port", 1, 65535, 80, key="try_port", disabled=not override)
             rate = st.number_input("Packets per second", 0.0, 3_000_000.0, 50.0, key="try_rate", disabled=not override)
             size = st.number_input("Packet size (bytes)", 0, 9000, 40, key="try_size", disabled=not override)
-        if st.button("🚀 Send test traffic", type="primary", width="stretch"):
+        if st.button("Send test traffic", type="primary", width="stretch"):
             kw = dict(dst_port=port, pkt_rate=rate, pkt_len=size) if override else {}
             res = simulate_packet(profile=choice, **kw)
             S["sim"] = res
@@ -307,9 +307,9 @@ with tab_try:
             sure = r["final_score"] if caught else 1 - r["final_score"]
             what = FRIENDLY.get(r["profile"], r["profile"])
             css = "bad" if caught else "ok"
-            title = f"🚨 Detected as ATTACK ({sure:.0%} sure)" if caught else f"✅ Judged NORMAL ({sure:.0%} sure)"
+            title = f"Detected as ATTACK ({sure:.0%} sure)" if caught else f"Judged NORMAL ({sure:.0%} sure)"
             st.markdown(f'<div class="banner {css}">{title}<div class="sub">You sent: {what} · '
-                        f'{"the system was right ✔" if correct else "the system was wrong ✘"}</div></div>',
+                        f'{"the system was right" if correct else "the system was wrong"}</div></div>',
                         unsafe_allow_html=True)
             _why(r["features"], r["label"])
         else:
